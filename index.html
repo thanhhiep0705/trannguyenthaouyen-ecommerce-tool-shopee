@@ -16,12 +16,16 @@
     </nav>
 
     <section id="autoFsPanel" class="tab-panel active">
-      <h1>Tạo File Flash Sale</h1>
-      <p>Công cụ lấy dữ liệu từ Google Sheet cố định, random sản phẩm theo 3 đoạn top bên dưới, rồi xuất tất cả phân loại và giá bán tương ứng.</p>
+      <div class="page-heading">
+        <div>
+          <h1>Tạo File Flash Sale</h1>
+          <p>Công cụ lấy dữ liệu từ Google Sheet cố định, random sản phẩm theo 3 đoạn top bên dưới, rồi xuất tất cả phân loại và giá bán tương ứng.</p>
+        </div>
+        <button id="refreshAutoFsBtn" class="refresh-button" type="button">Refresh</button>
+      </div>
 
       <section class="upload">
         <div class="actions">
-          <button id="loadSheetBtn" type="button">Lấy dữ liệu từ Google Sheet</button>
           <button id="rerollBtn" type="button" disabled>Random lại</button>
           <button id="downloadBtn" type="button" disabled>Tải Flash Sale.xlsx</button>
         </div>
@@ -131,15 +135,14 @@
     </section>
 
     <section id="dashboardPanel" class="tab-panel">
-      <h1>Dashboard</h1>
-      <p>So sánh doanh thu giữa sheet Last Month Revenue và This Month Revenue theo sản phẩm và phân loại.</p>
-
-      <section class="upload">
-        <div class="actions">
-          <button id="loadDashboardBtn" type="button">Lấy dữ liệu Dashboard</button>
+      <div class="page-heading">
+        <div>
+          <h1>Dashboard</h1>
+          <p>So sánh doanh thu giữa sheet Last Month Revenue và This Month Revenue theo sản phẩm và phân loại.</p>
         </div>
-        <div id="dashboardStatus" class="status"></div>
-      </section>
+        <button id="refreshDashboardBtn" class="refresh-button" type="button">Refresh</button>
+      </div>
+      <div id="dashboardStatus" class="status"></div>
 
       <section class="summary dashboard-summary" aria-label="Tóm tắt dashboard">
         <div class="metric">

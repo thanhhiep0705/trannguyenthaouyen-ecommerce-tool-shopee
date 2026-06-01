@@ -1,4 +1,4 @@
-const loadSheetBtn = document.getElementById('loadSheetBtn');
+const refreshAutoFsBtn = document.getElementById('refreshAutoFsBtn');
 const rerollBtn = document.getElementById('rerollBtn');
 const downloadBtn = document.getElementById('downloadBtn');
 const statusEl = document.getElementById('status');
@@ -8,7 +8,7 @@ const totalProductCountEl = document.getElementById('totalProductCount');
 const previewBody = document.getElementById('previewBody');
 const historyBody = document.getElementById('historyBody');
 const priceAdjustmentInput = document.getElementById('priceAdjustment');
-const loadDashboardBtn = document.getElementById('loadDashboardBtn');
+const refreshDashboardBtn = document.getElementById('refreshDashboardBtn');
 const dashboardStatusEl = document.getElementById('dashboardStatus');
 const lastMonthTotalEl = document.getElementById('lastMonthTotal');
 const thisMonthTotalEl = document.getElementById('thisMonthTotal');
@@ -41,6 +41,7 @@ let outputRows = [];
 let currentSelectedProductIds = [];
 let currentSelectedProducts = [];
 let currentRevenueTree = [];
+let dashboardLoaded = false;
 
 const GOOGLE_SHEET_ID = '1Pi__I2Uwd3OTGp7ff8Ju6qC0oQHidTZMu11ljZbNPM4';
 const GOOGLE_SHEET_GID = '1099495700';
@@ -51,7 +52,7 @@ const MAX_DOWNLOAD_HISTORY = 5;
 const MAX_ALLOWED_DUPLICATES = 2;
 const MAX_RANDOM_ATTEMPTS = 500;
 
-loadSheetBtn.addEventListener('click', handleGoogleSheet);
+refreshAutoFsBtn.addEventListener('click', handleGoogleSheet);
 rerollBtn.addEventListener('click', () => {
   try {
     generateResult();
@@ -61,7 +62,7 @@ rerollBtn.addEventListener('click', () => {
   }
 });
 downloadBtn.addEventListener('click', downloadFlashSale);
-loadDashboardBtn.addEventListener('click', handleDashboard);
+refreshDashboardBtn.addEventListener('click', handleDashboard);
 dashboardSearchInput.addEventListener('input', () => {
   renderRevenueTree(currentRevenueTree);
 });
@@ -69,6 +70,7 @@ tabButtons.forEach(button => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
 });
 renderDownloadHistory();
+handleGoogleSheet();
 
 function switchTab(panelId) {
   tabButtons.forEach(button => {
@@ -78,6 +80,14 @@ function switchTab(panelId) {
   tabPanels.forEach(panel => {
     panel.classList.toggle('active', panel.id === panelId);
   });
+
+  if (panelId === 'autoFsPanel' && !parsedProducts.length) {
+    handleGoogleSheet();
+  }
+
+  if (panelId === 'dashboardPanel' && !dashboardLoaded) {
+    handleDashboard();
+  }
 }
 
 function setStatus(message, type) {
@@ -108,7 +118,7 @@ async function handleGoogleSheet() {
 
   try {
     setStatus('Đang lấy dữ liệu từ Google Sheet...', '');
-    loadSheetBtn.disabled = true;
+    refreshAutoFsBtn.disabled = true;
 
     const rows = await loadGoogleSheetRows({ gid: GOOGLE_SHEET_GID });
     parsedProducts = parsePivotRows(rows);
@@ -118,7 +128,7 @@ async function handleGoogleSheet() {
     console.error(error);
     setStatus(`Lỗi: ${error.message}`, 'error');
   } finally {
-    loadSheetBtn.disabled = false;
+    refreshAutoFsBtn.disabled = false;
   }
 }
 
@@ -180,7 +190,7 @@ function loadGoogleSheetRows(options = {}) {
 async function handleDashboard() {
   try {
     setDashboardStatus('Đang lấy dữ liệu Dashboard...', '');
-    loadDashboardBtn.disabled = true;
+    refreshDashboardBtn.disabled = true;
 
     const [lastMonthRows, thisMonthRows] = await Promise.all([
       loadGoogleSheetRows({ sheetName: LAST_MONTH_REVENUE_SHEET }),
@@ -191,6 +201,7 @@ async function handleDashboard() {
     const thisMonthData = parseRevenueRows(thisMonthRows, THIS_MONTH_REVENUE_SHEET);
     const revenueTree = buildRevenueTree(lastMonthData, thisMonthData);
     currentRevenueTree = revenueTree;
+    dashboardLoaded = true;
 
     renderDashboardSummary(lastMonthData.totalRevenue, thisMonthData.totalRevenue);
     renderRevenueTree(revenueTree);
@@ -199,7 +210,7 @@ async function handleDashboard() {
     console.error(error);
     setDashboardStatus(`Lỗi: ${error.message}`, 'error');
   } finally {
-    loadDashboardBtn.disabled = false;
+    refreshDashboardBtn.disabled = false;
   }
 }
 
