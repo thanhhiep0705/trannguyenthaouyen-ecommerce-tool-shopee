@@ -18,7 +18,7 @@ body {
 }
 
 main {
-  width: min(960px, 100%);
+  width: min(1180px, 100%);
   background: #ffffff;
   border: 1px solid #dfe5ef;
   border-radius: 8px;
@@ -36,6 +36,32 @@ p {
   margin: 0;
   color: #526071;
   line-height: 1.5;
+}
+
+.tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #dfe5ef;
+  margin: -8px -8px 24px;
+  padding: 0 0 10px;
+}
+
+.tab-button {
+  background: #eef3fb;
+  color: #172033;
+}
+
+.tab-button.active {
+  background: #0f62fe;
+  color: #ffffff;
+}
+
+.tab-panel {
+  display: none;
+}
+
+.tab-panel.active {
+  display: block;
 }
 
 .upload {
@@ -115,6 +141,19 @@ input[type="number"] {
   font-size: 14px;
 }
 
+input[type="search"] {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  padding: 10px;
+  font-size: 14px;
+}
+
+.price-adjustment {
+  max-width: 320px;
+  margin-top: 18px;
+}
+
 .status {
   min-height: 24px;
   margin-top: 16px;
@@ -134,6 +173,100 @@ input[type="number"] {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin-top: 18px;
+}
+
+.dashboard-summary {
+  margin-top: 18px;
+}
+
+.dashboard-section {
+  margin-top: 28px;
+}
+
+.dashboard-section h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.section-heading {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: end;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.dashboard-tools {
+  max-width: 360px;
+  flex: 1 1 280px;
+}
+
+.dashboard-tools label {
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.change-up {
+  color: #067647;
+  font-weight: 700;
+}
+
+.change-down {
+  color: #b42318;
+  font-weight: 700;
+}
+
+.change-flat {
+  color: #526071;
+  font-weight: 700;
+}
+
+.percent-cell {
+  min-width: 130px;
+}
+
+.percent-bar {
+  width: 96px;
+  height: 6px;
+  margin-top: 5px;
+  border-radius: 999px;
+  background: #e5eaf2;
+  overflow: hidden;
+}
+
+.percent-fill {
+  display: block;
+  height: 100%;
+  width: var(--bar-width, 0%);
+  background: #0f62fe;
+}
+
+.revenue-product-row td {
+  background: #eef3fb;
+  border-top: 2px solid #b8c7dd;
+  font-weight: 700;
+}
+
+.revenue-variant-row td:first-child {
+  padding-left: 24px;
+  color: #526071;
+}
+
+.revenue-variant-row td:nth-child(2) {
+  color: #526071;
+}
+
+.name-cell {
+  max-width: 280px;
+  min-width: 220px;
+}
+
+.name-ellipsis {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .metric {
