@@ -8,6 +8,17 @@ const totalProductCountEl = document.getElementById('totalProductCount');
 const previewBody = document.getElementById('previewBody');
 const historyBody = document.getElementById('historyBody');
 const priceAdjustmentInput = document.getElementById('priceAdjustment');
+const refreshInventoryFsBtn = document.getElementById('refreshInventoryFsBtn');
+const rerollInventoryBtn = document.getElementById('rerollInventoryBtn');
+const downloadInventoryBtn = document.getElementById('downloadInventoryBtn');
+const inventoryStatusEl = document.getElementById('inventoryStatus');
+const minimumInventoryInput = document.getElementById('minimumInventory');
+const inventoryPriceAdjustmentInput = document.getElementById('inventoryPriceAdjustment');
+const inventoryProductCountEl = document.getElementById('inventoryProductCount');
+const inventoryVariantCountEl = document.getElementById('inventoryVariantCount');
+const eligibleInventoryProductCountEl = document.getElementById('eligibleInventoryProductCount');
+const inventoryPreviewBody = document.getElementById('inventoryPreviewBody');
+const inventoryHistoryBody = document.getElementById('inventoryHistoryBody');
 const refreshDashboardBtn = document.getElementById('refreshDashboardBtn');
 const dashboardStatusEl = document.getElementById('dashboardStatus');
 const lastMonthTotalEl = document.getElementById('lastMonthTotal');
@@ -40,6 +51,10 @@ let parsedProducts = [];
 let outputRows = [];
 let currentSelectedProductIds = [];
 let currentSelectedProducts = [];
+let inventoryProducts = [];
+let inventoryOutputRows = [];
+let currentInventorySelectedProducts = [];
+let inventoryLoaded = false;
 let currentRevenueTree = [];
 let dashboardLoaded = false;
 
@@ -48,6 +63,9 @@ const GOOGLE_SHEET_GID = '1099495700';
 const LAST_MONTH_REVENUE_SHEET = 'Last Month Revenue';
 const THIS_MONTH_REVENUE_SHEET = 'This Month Revenue';
 const DOWNLOAD_HISTORY_KEY = 'flashSaleRecentDownloadedProductIds';
+const INVENTORY_SHEET = 'FS theo tồn';
+const INVENTORY_DOWNLOAD_HISTORY_KEY = 'inventoryFlashSaleRecentDownloadedProductIds';
+const INVENTORY_PRODUCT_COUNT = 10;
 const MAX_DOWNLOAD_HISTORY = 5;
 const MAX_ALLOWED_DUPLICATES = 2;
 const MAX_RANDOM_ATTEMPTS = 500;
@@ -62,6 +80,16 @@ rerollBtn.addEventListener('click', () => {
   }
 });
 downloadBtn.addEventListener('click', downloadFlashSale);
+refreshInventoryFsBtn.addEventListener('click', handleInventoryGoogleSheet);
+rerollInventoryBtn.addEventListener('click', () => {
+  try {
+    generateInventoryResult();
+  } catch (error) {
+    console.error(error);
+    setInventoryStatus(`Lỗi: ${error.message}`, 'error');
+  }
+});
+downloadInventoryBtn.addEventListener('click', downloadInventoryFlashSale);
 refreshDashboardBtn.addEventListener('click', handleDashboard);
 dashboardSearchInput.addEventListener('input', () => {
   renderRevenueTree(currentRevenueTree);
@@ -70,6 +98,7 @@ tabButtons.forEach(button => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
 });
 renderDownloadHistory();
+renderInventoryDownloadHistory();
 handleGoogleSheet();
 
 function switchTab(panelId) {
@@ -88,6 +117,10 @@ function switchTab(panelId) {
   if (panelId === 'dashboardPanel' && !dashboardLoaded) {
     handleDashboard();
   }
+
+  if (panelId === 'inventoryFsPanel' && !inventoryLoaded) {
+    handleInventoryGoogleSheet();
+  }
 }
 
 function setStatus(message, type) {
@@ -98,6 +131,11 @@ function setStatus(message, type) {
 function setDashboardStatus(message, type) {
   dashboardStatusEl.textContent = message;
   dashboardStatusEl.className = type ? `status ${type}` : 'status';
+}
+
+function setInventoryStatus(message, type) {
+  inventoryStatusEl.textContent = message;
+  inventoryStatusEl.className = type ? `status ${type}` : 'status';
 }
 
 function resetResult() {
@@ -129,6 +167,39 @@ async function handleGoogleSheet() {
     setStatus(`Lỗi: ${error.message}`, 'error');
   } finally {
     refreshAutoFsBtn.disabled = false;
+  }
+}
+
+function resetInventoryResult() {
+  inventoryOutputRows = [];
+  currentInventorySelectedProducts = [];
+  rerollInventoryBtn.disabled = true;
+  downloadInventoryBtn.disabled = true;
+  inventoryProductCountEl.textContent = '0';
+  inventoryVariantCountEl.textContent = '0';
+  eligibleInventoryProductCountEl.textContent = '0';
+  inventoryPreviewBody.innerHTML = '<tr><td colspan="4">Chưa có dữ liệu.</td></tr>';
+}
+
+async function handleInventoryGoogleSheet() {
+  resetInventoryResult();
+  inventoryLoaded = false;
+  inventoryProducts = [];
+
+  try {
+    setInventoryStatus('Đang lấy dữ liệu từ sheet FS theo tồn...', '');
+    refreshInventoryFsBtn.disabled = true;
+
+    const rows = await loadGoogleSheetRows({ sheetName: INVENTORY_SHEET });
+    inventoryProducts = parseInventoryRows(rows);
+    inventoryLoaded = true;
+    rerollInventoryBtn.disabled = false;
+    generateInventoryResult('Đã lấy dữ liệu từ sheet FS theo tồn.');
+  } catch (error) {
+    console.error(error);
+    setInventoryStatus(`Lỗi: ${error.message}`, 'error');
+  } finally {
+    refreshInventoryFsBtn.disabled = false;
   }
 }
 
@@ -598,6 +669,98 @@ function generateUniqueSelection(groups) {
   throw new Error(`Không random được bộ mới trùng tối đa ${MAX_ALLOWED_DUPLICATES} sản phẩm với 5 lần tải gần nhất. Hãy giảm số lượng lấy hoặc đổi khoảng top.`);
 }
 
+function generateInventoryResult(prefixMessage = 'Đã random lại kết quả.') {
+  inventoryOutputRows = [];
+  currentInventorySelectedProducts = [];
+  downloadInventoryBtn.disabled = true;
+  inventoryProductCountEl.textContent = '0';
+  inventoryVariantCountEl.textContent = '0';
+  inventoryPreviewBody.innerHTML = '<tr><td colspan="4">Đang random kết quả...</td></tr>';
+
+  if (!inventoryProducts.length) {
+    setInventoryStatus('Chưa có dữ liệu hợp lệ từ sheet FS theo tồn.', 'error');
+    return;
+  }
+
+  const minimumInventory = readNonNegativeInteger(
+    minimumInventoryInput,
+    'Tồn tối thiểu tại mỗi kho'
+  );
+  const eligibleProducts = inventoryProducts
+    .map(product => ({
+      ...product,
+      variants: product.variants.filter(variant =>
+        variant.bnInventory >= minimumInventory &&
+        variant.hcmInventory >= minimumInventory
+      )
+    }))
+    .filter(product => product.variants.length > 0);
+
+  eligibleInventoryProductCountEl.textContent = eligibleProducts.length.toLocaleString('vi-VN');
+
+  if (eligibleProducts.length < INVENTORY_PRODUCT_COUNT) {
+    inventoryPreviewBody.innerHTML = '<tr><td colspan="4">Không đủ sản phẩm phù hợp.</td></tr>';
+    throw new Error(
+      `Chỉ có ${eligibleProducts.length} sản phẩm đạt tồn kho, cần ít nhất ${INVENTORY_PRODUCT_COUNT} sản phẩm.`
+    );
+  }
+
+  const selectedProducts = generateInventoryUniqueSelection(eligibleProducts);
+  currentInventorySelectedProducts = selectedProducts;
+  inventoryOutputRows = selectedProducts.flatMap(product =>
+    product.variants.map(variant => ({
+      'Mã sản phẩm': product.productId,
+      'Mã phân loại hàng': variant.variantId,
+      'Giá đã giảm': variant.price
+    }))
+  );
+
+  renderInventorySummary(selectedProducts);
+  downloadInventoryBtn.disabled = false;
+  setInventoryStatus(`${prefixMessage} Bấm tải để xuất file.`, 'ok');
+}
+
+function generateInventoryUniqueSelection(eligibleProducts) {
+  const historyProductSets = readDownloadHistory(INVENTORY_DOWNLOAD_HISTORY_KEY)
+    .map(entry => new Set(entry.productIds));
+
+  if (!historyProductSets.length) {
+    return sampleProducts(eligibleProducts, INVENTORY_PRODUCT_COUNT, 'Theo tồn');
+  }
+
+  for (let attempt = 0; attempt < MAX_RANDOM_ATTEMPTS; attempt += 1) {
+    const selectedProducts = [];
+    const duplicateCounts = historyProductSets.map(() => 0);
+
+    for (const product of shuffleProducts(eligibleProducts)) {
+      const canSelect = historyProductSets.every((productIds, historyIndex) =>
+        duplicateCounts[historyIndex] +
+          (productIds.has(product.productId) ? 1 : 0) <= MAX_ALLOWED_DUPLICATES
+      );
+
+      if (!canSelect) continue;
+
+      selectedProducts.push({
+        ...product,
+        groupName: 'Theo tồn'
+      });
+      historyProductSets.forEach((productIds, historyIndex) => {
+        if (productIds.has(product.productId)) {
+          duplicateCounts[historyIndex] += 1;
+        }
+      });
+
+      if (selectedProducts.length === INVENTORY_PRODUCT_COUNT) {
+        return selectedProducts;
+      }
+    }
+  }
+
+  throw new Error(
+    `Không random được bộ mới trùng tối đa ${MAX_ALLOWED_DUPLICATES} sản phẩm với 5 lần tải gần nhất. Hãy giảm ngưỡng tồn kho để tăng số sản phẩm phù hợp.`
+  );
+}
+
 function selectProductsForGroups(groups) {
   return groups.flatMap(group => {
     const productsInRange = parsedProducts.filter(product =>
@@ -607,8 +770,8 @@ function selectProductsForGroups(groups) {
   });
 }
 
-function getMaxHistoryDuplicateCount(productIds) {
-  const history = readDownloadHistory();
+function getMaxHistoryDuplicateCount(productIds, historyKey = DOWNLOAD_HISTORY_KEY) {
+  const history = readDownloadHistory(historyKey);
   if (!history.length) return 0;
 
   const currentIds = new Set(productIds);
@@ -725,6 +888,67 @@ function parsePivotRows(rows) {
   return products.filter(product => product.variants.length > 0);
 }
 
+function parseInventoryRows(rows) {
+  const headerIndex = rows.findIndex(row => {
+    const headers = row.map(normalizeHeader);
+    return headers.includes('ma san pham') &&
+      headers.some(header => header.includes('ma phan loai')) &&
+      headers.includes('daily sale') &&
+      headers.some(header => header.includes('ton kho bn')) &&
+      headers.some(header => header.includes('ton kho hcm'));
+  });
+
+  if (headerIndex === -1) {
+    throw new Error(
+      'Sheet FS theo tồn cần có các cột Mã sản phẩm, Mã phân loại hàng, Daily Sale, Tồn Kho BN và Tồn Kho HCM.'
+    );
+  }
+
+  const headers = rows[headerIndex].map(normalizeHeader);
+  const productCol = headers.indexOf('ma san pham');
+  const variantCol = headers.findIndex(header => header.includes('ma phan loai'));
+  const priceCol = headers.indexOf('daily sale');
+  const bnInventoryCol = headers.findIndex(header => header.includes('ton kho bn'));
+  const hcmInventoryCol = headers.findIndex(header => header.includes('ton kho hcm'));
+  const productsById = new Map();
+
+  for (const row of rows.slice(headerIndex + 1)) {
+    const productId = cleanCell(row[productCol]);
+    const variantId = cleanCell(row[variantCol]);
+    const price = cleanCell(row[priceCol]);
+    const bnInventory = parseOptionalNumber(row[bnInventoryCol]);
+    const hcmInventory = parseOptionalNumber(row[hcmInventoryCol]);
+
+    if (
+      !productId ||
+      !variantId ||
+      variantId === '-' ||
+      !price ||
+      bnInventory === null ||
+      hcmInventory === null
+    ) {
+      continue;
+    }
+
+    if (!productsById.has(productId)) {
+      productsById.set(productId, {
+        productId,
+        rank: productsById.size + 1,
+        variants: []
+      });
+    }
+
+    productsById.get(productId).variants.push({
+      variantId,
+      price,
+      bnInventory,
+      hcmInventory
+    });
+  }
+
+  return [...productsById.values()].filter(product => product.variants.length > 0);
+}
+
 function normalizeHeader(value) {
   return cleanCell(value)
     .toLowerCase()
@@ -741,11 +965,22 @@ function cleanCell(value) {
 }
 
 function sampleProducts(products, count, groupName) {
-  const shuffled = [...products].sort(() => Math.random() - 0.5);
+  const shuffled = shuffleProducts(products);
   return shuffled.slice(0, Math.min(count, shuffled.length)).map(product => ({
     ...product,
     groupName
   }));
+}
+
+function shuffleProducts(products) {
+  const shuffled = [...products];
+
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+    [shuffled[index], shuffled[randomIndex]] = [shuffled[randomIndex], shuffled[index]];
+  }
+
+  return shuffled;
 }
 
 function renderSummary(products, selectedProducts, rows) {
@@ -771,6 +1006,25 @@ function renderSummary(products, selectedProducts, rows) {
     .join('');
 }
 
+function renderInventorySummary(selectedProducts) {
+  inventoryProductCountEl.textContent = selectedProducts.length.toLocaleString('vi-VN');
+  inventoryVariantCountEl.textContent = inventoryOutputRows.length.toLocaleString('vi-VN');
+
+  inventoryPreviewBody.innerHTML = selectedProducts.map(product => {
+    const minimumBnInventory = Math.min(...product.variants.map(variant => variant.bnInventory));
+    const minimumHcmInventory = Math.min(...product.variants.map(variant => variant.hcmInventory));
+
+    return `
+      <tr>
+        <td>${escapeHtml(product.productId)}</td>
+        <td>${product.variants.length}</td>
+        <td>${minimumBnInventory.toLocaleString('vi-VN')}</td>
+        <td>${minimumHcmInventory.toLocaleString('vi-VN')}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
 function downloadFlashSale() {
   if (!outputRows.length) return;
 
@@ -787,31 +1041,52 @@ function downloadFlashSale() {
   renderDownloadHistory();
   downloadBtn.disabled = true;
   setStatus('Đã lưu lịch sử tải. Bấm Random lại để tạo bộ mới trước lần tải tiếp theo.', 'ok');
+  writeFlashSaleFile(exportRows);
+}
 
-  const worksheet = XLSX.utils.json_to_sheet(exportRows, {
-    header: ['Mã sản phẩm', 'Mã phân loại hàng', 'Giá đã giảm']
-  });
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Flash Sale');
-  XLSX.writeFile(workbook, 'Flash Sale.xlsx');
+function downloadInventoryFlashSale() {
+  if (!inventoryOutputRows.length) return;
+
+  let exportRows;
+  try {
+    exportRows = buildAdjustedExportRows(
+      inventoryOutputRows,
+      inventoryPriceAdjustmentInput,
+      'Điều chỉnh giá theo tồn'
+    );
+  } catch (error) {
+    console.error(error);
+    setInventoryStatus(`Lỗi: ${error.message}`, 'error');
+    return;
+  }
+
+  saveDownloadHistory(currentInventorySelectedProducts, INVENTORY_DOWNLOAD_HISTORY_KEY);
+  renderInventoryDownloadHistory();
+  downloadInventoryBtn.disabled = true;
+  setInventoryStatus('Đã lưu lịch sử tải. Bấm Random lại để tạo bộ mới trước lần tải tiếp theo.', 'ok');
+  writeFlashSaleFile(exportRows, 'Flash Sale theo tồn.xlsx');
 }
 
 function buildExportRows() {
-  const priceAdjustment = readPriceAdjustment();
+  return buildAdjustedExportRows(outputRows, priceAdjustmentInput, 'Điều chỉnh giá');
+}
 
-  return outputRows.map(row => ({
+function buildAdjustedExportRows(rows, adjustmentInput, adjustmentLabel) {
+  const priceAdjustment = readPriceAdjustment(adjustmentInput, adjustmentLabel);
+
+  return rows.map(row => ({
     ...row,
     'Giá đã giảm': adjustPrice(row['Giá đã giảm'], priceAdjustment)
   }));
 }
 
-function readPriceAdjustment() {
-  const rawValue = priceAdjustmentInput.value.trim();
+function readPriceAdjustment(input = priceAdjustmentInput, label = 'Điều chỉnh giá') {
+  const rawValue = input.value.trim();
   if (rawValue === '') return 0;
 
   const value = Number(rawValue);
   if (!Number.isFinite(value)) {
-    throw new Error('Điều chỉnh giá phải là một số hợp lệ.');
+    throw new Error(`${label} phải là một số hợp lệ.`);
   }
 
   return value;
@@ -887,9 +1162,9 @@ function normalizeSingleSeparatorNumber(value, separator) {
   return value;
 }
 
-function readDownloadHistory() {
+function readDownloadHistory(historyKey = DOWNLOAD_HISTORY_KEY) {
   try {
-    const history = JSON.parse(localStorage.getItem(DOWNLOAD_HISTORY_KEY) || '[]');
+    const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
     if (!Array.isArray(history)) return [];
 
     return history
@@ -914,7 +1189,7 @@ function readDownloadHistory() {
   }
 }
 
-function saveDownloadHistory(products) {
+function saveDownloadHistory(products, historyKey = DOWNLOAD_HISTORY_KEY) {
   const uniqueProducts = [];
   const seenProductIds = new Set();
 
@@ -931,7 +1206,7 @@ function saveDownloadHistory(products) {
 
   if (!uniqueProducts.length) return;
 
-  const history = readDownloadHistory();
+  const history = readDownloadHistory(historyKey);
   history.unshift({
     downloadedAt: new Date().toISOString(),
     productIds: uniqueProducts.map(product => product.productId),
@@ -939,29 +1214,37 @@ function saveDownloadHistory(products) {
   });
 
   localStorage.setItem(
-    DOWNLOAD_HISTORY_KEY,
+    historyKey,
     JSON.stringify(history.slice(0, MAX_DOWNLOAD_HISTORY))
   );
 }
 
 function renderDownloadHistory() {
-  const history = readDownloadHistory();
+  renderHistory(historyBody, DOWNLOAD_HISTORY_KEY, true);
+}
+
+function renderInventoryDownloadHistory() {
+  renderHistory(inventoryHistoryBody, INVENTORY_DOWNLOAD_HISTORY_KEY, false);
+}
+
+function renderHistory(container, historyKey, showRank) {
+  const history = readDownloadHistory(historyKey);
 
   if (!history.length) {
-    historyBody.className = 'history-grid';
-    historyBody.innerHTML = '<div class="empty-history">Chưa có lịch sử tải.</div>';
+    container.className = 'history-grid';
+    container.innerHTML = '<div class="empty-history">Chưa có lịch sử tải.</div>';
     return;
   }
 
-  historyBody.className = 'history-grid';
-  historyBody.innerHTML = history.map((entry, index) => {
+  container.className = 'history-grid';
+  container.innerHTML = history.map((entry, index) => {
     const products = entry.products && entry.products.length
       ? entry.products
       : entry.productIds.map(productId => ({ productId, rank: '' }));
 
     const items = products.map(product => `
       <div class="history-item">
-        <strong>Top ${product.rank ? product.rank : '-'}</strong>
+        ${showRank ? `<strong>Top ${product.rank ? product.rank : '-'}</strong>` : ''}
         <span>${escapeHtml(product.productId)}</span>
       </div>
     `).join('');
@@ -973,6 +1256,15 @@ function renderDownloadHistory() {
       </div>
     `;
   }).join('');
+}
+
+function writeFlashSaleFile(exportRows, fileName = 'Flash Sale.xlsx') {
+  const worksheet = XLSX.utils.json_to_sheet(exportRows, {
+    header: ['Mã sản phẩm', 'Mã phân loại hàng', 'Giá đã giảm']
+  });
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Flash Sale');
+  XLSX.writeFile(workbook, fileName);
 }
 
 function escapeHtml(value) {

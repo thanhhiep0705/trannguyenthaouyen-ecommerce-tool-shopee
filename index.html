@@ -12,6 +12,7 @@
   <main>
     <nav class="tabs" aria-label="Menu chính">
       <button class="tab-button active" type="button" data-tab="autoFsPanel">Auto FS</button>
+      <button class="tab-button" type="button" data-tab="inventoryFsPanel">FS theo tồn</button>
       <button class="tab-button" type="button" data-tab="dashboardPanel">Dashboard</button>
     </nav>
 
@@ -129,6 +130,75 @@
       <section class="history" aria-label="5 lần tải gần nhất">
         <h2>5 lần tải gần nhất</h2>
         <div id="historyBody" class="history-grid">
+          <div class="empty-history">Chưa có lịch sử tải.</div>
+        </div>
+      </section>
+    </section>
+
+    <section id="inventoryFsPanel" class="tab-panel">
+      <div class="page-heading">
+        <div>
+          <h1>Tạo File Flash Sale Theo Tồn</h1>
+          <p>Random 10 sản phẩm từ sheet FS theo tồn. Chỉ các phân loại có tồn kho BN và HCM cùng đạt ngưỡng mới được xuất.</p>
+        </div>
+        <button id="refreshInventoryFsBtn" class="refresh-button" type="button">Refresh</button>
+      </div>
+
+      <section class="upload">
+        <div class="actions">
+          <button id="rerollInventoryBtn" type="button" disabled>Random lại</button>
+          <button id="downloadInventoryBtn" type="button" disabled>Tải Flash Sale.xlsx</button>
+        </div>
+        <div id="inventoryStatus" class="status"></div>
+      </section>
+
+      <section class="inventory-config" aria-label="Cấu hình tồn kho">
+        <div class="field">
+          <label for="minimumInventory">Tồn tối thiểu tại mỗi kho</label>
+          <input id="minimumInventory" type="number" min="0" step="1" value="200">
+        </div>
+        <div class="field">
+          <label for="inventoryPriceAdjustment">Điều chỉnh giá đã giảm</label>
+          <input id="inventoryPriceAdjustment" type="number" step="1000" value="0" placeholder="Ví dụ: 10000 hoặc -10000">
+        </div>
+      </section>
+
+      <section class="summary" aria-label="Tóm tắt kết quả theo tồn">
+        <div class="metric">
+          <strong id="inventoryProductCount">0</strong>
+          <span>Sản phẩm được chọn</span>
+        </div>
+        <div class="metric">
+          <strong id="inventoryVariantCount">0</strong>
+          <span>Dòng phân loại xuất ra</span>
+        </div>
+        <div class="metric">
+          <strong id="eligibleInventoryProductCount">0</strong>
+          <span>Sản phẩm đạt tồn kho</span>
+        </div>
+      </section>
+
+      <section class="preview">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã sản phẩm</th>
+              <th>Số phân loại đạt tồn</th>
+              <th>Tồn BN thấp nhất</th>
+              <th>Tồn HCM thấp nhất</th>
+            </tr>
+          </thead>
+          <tbody id="inventoryPreviewBody">
+            <tr>
+              <td colspan="4">Chưa có dữ liệu.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="history" aria-label="5 lần tải theo tồn gần nhất">
+        <h2>5 lần tải gần nhất</h2>
+        <div id="inventoryHistoryBody" class="history-grid">
           <div class="empty-history">Chưa có lịch sử tải.</div>
         </div>
       </section>
