@@ -1,6 +1,7 @@
 const refreshAutoFsBtn = document.getElementById('refreshAutoFsBtn');
 const rerollBtn = document.getElementById('rerollBtn');
 const downloadBtn = document.getElementById('downloadBtn');
+const downloadBatchBtn = document.getElementById('downloadBatchBtn');
 const statusEl = document.getElementById('status');
 const productCountEl = document.getElementById('productCount');
 const variantCountEl = document.getElementById('variantCount');
@@ -11,6 +12,7 @@ const priceAdjustmentInput = document.getElementById('priceAdjustment');
 const refreshInventoryFsBtn = document.getElementById('refreshInventoryFsBtn');
 const rerollInventoryBtn = document.getElementById('rerollInventoryBtn');
 const downloadInventoryBtn = document.getElementById('downloadInventoryBtn');
+const downloadInventoryBatchBtn = document.getElementById('downloadInventoryBatchBtn');
 const inventoryStatusEl = document.getElementById('inventoryStatus');
 const minimumInventoryInput = document.getElementById('minimumInventory');
 const inventoryPriceAdjustmentInput = document.getElementById('inventoryPriceAdjustment');
@@ -67,8 +69,10 @@ const INVENTORY_SHEET = 'FS theo tồn';
 const INVENTORY_DOWNLOAD_HISTORY_KEY = 'inventoryFlashSaleRecentDownloadedProductIds';
 const INVENTORY_PRODUCT_COUNT = 10;
 const MAX_DOWNLOAD_HISTORY = 5;
-const MAX_ALLOWED_DUPLICATES = 2;
+const MAX_ALLOWED_DUPLICATES = 0;
 const MAX_RANDOM_ATTEMPTS = 500;
+const BATCH_DOWNLOAD_COUNT = 8;
+const BATCH_RANDOM_TIMEOUT_MS = 15000;
 
 refreshAutoFsBtn.addEventListener('click', handleGoogleSheet);
 rerollBtn.addEventListener('click', () => {
@@ -80,6 +84,7 @@ rerollBtn.addEventListener('click', () => {
   }
 });
 downloadBtn.addEventListener('click', downloadFlashSale);
+downloadBatchBtn.addEventListener('click', downloadFlashSaleBatch);
 refreshInventoryFsBtn.addEventListener('click', handleInventoryGoogleSheet);
 rerollInventoryBtn.addEventListener('click', () => {
   try {
@@ -90,6 +95,7 @@ rerollInventoryBtn.addEventListener('click', () => {
   }
 });
 downloadInventoryBtn.addEventListener('click', downloadInventoryFlashSale);
+downloadInventoryBatchBtn.addEventListener('click', downloadInventoryFlashSaleBatch);
 refreshDashboardBtn.addEventListener('click', handleDashboard);
 dashboardSearchInput.addEventListener('input', () => {
   renderRevenueTree(currentRevenueTree);
@@ -145,6 +151,7 @@ function resetResult() {
   currentSelectedProducts = [];
   rerollBtn.disabled = true;
   downloadBtn.disabled = true;
+  downloadBatchBtn.disabled = true;
   productCountEl.textContent = '0';
   variantCountEl.textContent = '0';
   totalProductCountEl.textContent = '0';
@@ -175,6 +182,7 @@ function resetInventoryResult() {
   currentInventorySelectedProducts = [];
   rerollInventoryBtn.disabled = true;
   downloadInventoryBtn.disabled = true;
+  downloadInventoryBatchBtn.disabled = true;
   inventoryProductCountEl.textContent = '0';
   inventoryVariantCountEl.textContent = '0';
   eligibleInventoryProductCountEl.textContent = '0';
@@ -625,13 +633,7 @@ function generateResult(prefixMessage = 'Đã random lại kết quả.') {
   currentSelectedProducts = selectedProducts;
   currentSelectedProductIds = selectedProducts.map(product => product.productId);
 
-  outputRows = selectedProducts.flatMap(product =>
-    product.variants.map(variant => ({
-      'Mã sản phẩm': product.productId,
-      'Mã phân loại hàng': variant.variantId,
-      'Giá đã giảm': variant.price
-    }))
-  );
+  outputRows = buildOutputRowsFromProducts(selectedProducts);
 
   renderSummary(parsedProducts, selectedProducts, outputRows);
 
@@ -641,38 +643,61 @@ function generateResult(prefixMessage = 'Đã random lại kết quả.') {
   }
 
   downloadBtn.disabled = false;
+  downloadBatchBtn.disabled = false;
   setStatus(`${prefixMessage} Bấm tải để xuất file.`, 'ok');
 }
 
-function generateUniqueSelection(groups) {
-  let bestSelection = [];
-  let bestDuplicateCount = Infinity;
+function generateUniqueSelection(groups, pendingProductIdLists = [], includeDownloadHistory = true) {
+  const selection = tryGenerateUniqueSelection(
+    groups,
+    pendingProductIdLists,
+    includeDownloadHistory
+  );
 
+  if (selection) {
+    return selection;
+  }
+
+  if (!includeDownloadHistory) {
+    throw new Error('Không random đủ các file không trùng sản phẩm nhau trong lần tải hàng loạt này. Hãy giảm số lượng lấy hoặc đổi khoảng top.');
+  }
+
+  throw new Error('Không random được bộ mới không trùng sản phẩm nào với 5 lần tải gần nhất. Hãy giảm số lượng lấy hoặc đổi khoảng top.');
+}
+
+function tryGenerateUniqueSelection(groups, pendingProductIdLists = [], includeDownloadHistory = true) {
   for (let attempt = 0; attempt < MAX_RANDOM_ATTEMPTS; attempt += 1) {
     const selectedProducts = selectProductsForGroups(groups);
-    const duplicateCount = getMaxHistoryDuplicateCount(selectedProducts.map(product => product.productId));
+    const selectedProductIds = selectedProducts.map(product => product.productId);
 
-    if (duplicateCount < bestDuplicateCount) {
-      bestSelection = selectedProducts;
-      bestDuplicateCount = duplicateCount;
+    if (hasDuplicateValues(selectedProductIds)) {
+      continue;
     }
+
+    const duplicateCount = getMaxHistoryDuplicateCount(
+      selectedProductIds,
+      DOWNLOAD_HISTORY_KEY,
+      pendingProductIdLists,
+      includeDownloadHistory
+    );
 
     if (duplicateCount <= MAX_ALLOWED_DUPLICATES) {
       return selectedProducts;
     }
   }
 
-  if (bestDuplicateCount === Infinity) {
-    return bestSelection;
-  }
+  return null;
+}
 
-  throw new Error(`Không random được bộ mới trùng tối đa ${MAX_ALLOWED_DUPLICATES} sản phẩm với 5 lần tải gần nhất. Hãy giảm số lượng lấy hoặc đổi khoảng top.`);
+function hasDuplicateValues(values) {
+  return new Set(values).size !== values.length;
 }
 
 function generateInventoryResult(prefixMessage = 'Đã random lại kết quả.') {
   inventoryOutputRows = [];
   currentInventorySelectedProducts = [];
   downloadInventoryBtn.disabled = true;
+  downloadInventoryBatchBtn.disabled = true;
   inventoryProductCountEl.textContent = '0';
   inventoryVariantCountEl.textContent = '0';
   inventoryPreviewBody.innerHTML = '<tr><td colspan="4">Đang random kết quả...</td></tr>';
@@ -707,22 +732,46 @@ function generateInventoryResult(prefixMessage = 'Đã random lại kết quả.
 
   const selectedProducts = generateInventoryUniqueSelection(eligibleProducts);
   currentInventorySelectedProducts = selectedProducts;
-  inventoryOutputRows = selectedProducts.flatMap(product =>
-    product.variants.map(variant => ({
-      'Mã sản phẩm': product.productId,
-      'Mã phân loại hàng': variant.variantId,
-      'Giá đã giảm': variant.price
-    }))
-  );
+  inventoryOutputRows = buildOutputRowsFromProducts(selectedProducts);
 
   renderInventorySummary(selectedProducts);
   downloadInventoryBtn.disabled = false;
+  downloadInventoryBatchBtn.disabled = false;
   setInventoryStatus(`${prefixMessage} Bấm tải để xuất file.`, 'ok');
 }
 
-function generateInventoryUniqueSelection(eligibleProducts) {
-  const historyProductSets = readDownloadHistory(INVENTORY_DOWNLOAD_HISTORY_KEY)
-    .map(entry => new Set(entry.productIds));
+function generateInventoryUniqueSelection(
+  eligibleProducts,
+  pendingProductIdLists = [],
+  includeDownloadHistory = true
+) {
+  const selection = tryGenerateInventoryUniqueSelection(
+    eligibleProducts,
+    pendingProductIdLists,
+    includeDownloadHistory
+  );
+
+  if (selection) {
+    return selection;
+  }
+
+  throw new Error(
+    includeDownloadHistory
+      ? 'Không random được bộ mới không trùng sản phẩm nào với 5 lần tải gần nhất. Hãy giảm ngưỡng tồn kho để tăng số sản phẩm phù hợp.'
+      : 'Không random đủ các file không trùng sản phẩm nhau trong lần tải hàng loạt này. Hãy giảm ngưỡng tồn kho để tăng số sản phẩm phù hợp.'
+  );
+}
+
+function tryGenerateInventoryUniqueSelection(
+  eligibleProducts,
+  pendingProductIdLists = [],
+  includeDownloadHistory = true
+) {
+  const historyProductSets = (
+    includeDownloadHistory
+      ? readDownloadHistory(INVENTORY_DOWNLOAD_HISTORY_KEY).map(entry => new Set(entry.productIds))
+      : []
+  ).concat(pendingProductIdLists.map(productIds => new Set(productIds)));
 
   if (!historyProductSets.length) {
     return sampleProducts(eligibleProducts, INVENTORY_PRODUCT_COUNT, 'Theo tồn');
@@ -756,9 +805,7 @@ function generateInventoryUniqueSelection(eligibleProducts) {
     }
   }
 
-  throw new Error(
-    `Không random được bộ mới trùng tối đa ${MAX_ALLOWED_DUPLICATES} sản phẩm với 5 lần tải gần nhất. Hãy giảm ngưỡng tồn kho để tăng số sản phẩm phù hợp.`
-  );
+  return null;
 }
 
 function selectProductsForGroups(groups) {
@@ -770,13 +817,23 @@ function selectProductsForGroups(groups) {
   });
 }
 
-function getMaxHistoryDuplicateCount(productIds, historyKey = DOWNLOAD_HISTORY_KEY) {
-  const history = readDownloadHistory(historyKey);
-  if (!history.length) return 0;
+function getMaxHistoryDuplicateCount(
+  productIds,
+  historyKey = DOWNLOAD_HISTORY_KEY,
+  pendingProductIdLists = [],
+  includeDownloadHistory = true
+) {
+  const historyProductIdLists = (
+    includeDownloadHistory
+      ? readDownloadHistory(historyKey).map(entry => entry.productIds)
+      : []
+  ).concat(pendingProductIdLists);
+
+  if (!historyProductIdLists.length) return 0;
 
   const currentIds = new Set(productIds);
-  return Math.max(...history.map(entry =>
-    entry.productIds.filter(productId => currentIds.has(productId)).length
+  return Math.max(...historyProductIdLists.map(historyProductIds =>
+    historyProductIds.filter(productId => currentIds.has(productId)).length
   ));
 }
 
@@ -1025,6 +1082,45 @@ function renderInventorySummary(selectedProducts) {
   }).join('');
 }
 
+function setBatchButtonLoading(button, isLoading, loadingText, defaultText) {
+  button.textContent = isLoading ? loadingText : defaultText;
+  button.disabled = isLoading;
+  button.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+}
+
+async function generateBatchUniqueSelection(generateSelection, deadline, timeoutMessage) {
+  let attempt = 0;
+
+  while (Date.now() < deadline) {
+    const selectedProducts = generateSelection();
+
+    if (selectedProducts) {
+      return selectedProducts;
+    }
+
+    attempt += 1;
+    if (attempt % 10 === 0) {
+      await waitForNextFrame();
+    }
+  }
+
+  throw new Error(timeoutMessage);
+}
+
+function waitForNextFrame() {
+  return new Promise(resolve => setTimeout(resolve, 0));
+}
+
+function buildOutputRowsFromProducts(products) {
+  return products.flatMap(product =>
+    product.variants.map(variant => ({
+      'Mã sản phẩm': product.productId,
+      'Mã phân loại hàng': variant.variantId,
+      'Giá đã giảm': variant.price
+    }))
+  );
+}
+
 function downloadFlashSale() {
   if (!outputRows.length) return;
 
@@ -1041,7 +1137,93 @@ function downloadFlashSale() {
   renderDownloadHistory();
   downloadBtn.disabled = true;
   setStatus('Đã lưu lịch sử tải. Bấm Random lại để tạo bộ mới trước lần tải tiếp theo.', 'ok');
-  writeFlashSaleFile(exportRows);
+  writeFlashSaleFile(exportRows, `Flash Sale ${getFileDateStamp()}.xlsx`);
+}
+
+async function downloadFlashSaleBatch() {
+  if (!parsedProducts.length) return;
+
+  const defaultBatchButtonText = downloadBatchBtn.textContent;
+  rerollBtn.disabled = true;
+  downloadBtn.disabled = true;
+  setBatchButtonLoading(
+    downloadBatchBtn,
+    true,
+    `Đang tạo ZIP ${BATCH_DOWNLOAD_COUNT} file...`,
+    defaultBatchButtonText
+  );
+  setStatus(`Đang random và tạo ZIP ${BATCH_DOWNLOAD_COUNT} file...`, '');
+
+  let groups;
+  let priceAdjustment;
+
+  try {
+    groups = readGroups();
+    priceAdjustment = readPriceAdjustment(priceAdjustmentInput, 'Điều chỉnh giá');
+  } catch (error) {
+    console.error(error);
+    setStatus(`Lỗi: ${error.message}`, 'error');
+    rerollBtn.disabled = false;
+    setBatchButtonLoading(downloadBatchBtn, false, '', defaultBatchButtonText);
+    return;
+  }
+
+  let completedCount = 0;
+
+  try {
+    const zip = createZipArchive();
+    const pendingProductIdLists = [];
+    const selectedProductBatches = [];
+    const deadline = Date.now() + BATCH_RANDOM_TIMEOUT_MS;
+
+    for (let index = 1; index <= BATCH_DOWNLOAD_COUNT; index += 1) {
+      const selectedProducts = await generateBatchUniqueSelection(
+        () => tryGenerateUniqueSelection(groups, pendingProductIdLists, false),
+        deadline,
+        'Không random đủ 8 file không trùng sản phẩm nhau trong 15 giây. Hãy giảm số lượng lấy hoặc đổi khoảng top.'
+      );
+      const rows = buildOutputRowsFromProducts(selectedProducts);
+      const exportRows = buildAdjustedExportRowsWithAdjustment(rows, priceAdjustment);
+
+      if (!exportRows.length) {
+        throw new Error('Không tìm thấy dòng phân loại có giá bán để xuất.');
+      }
+
+      zip.file(
+        `Flash Sale ${getFileDateStamp()} ${formatBatchNumber(index)}.xlsx`,
+        buildFlashSaleWorkbookData(exportRows)
+      );
+
+      pendingProductIdLists.push(selectedProducts.map(product => product.productId));
+      selectedProductBatches.push(selectedProducts);
+
+      currentSelectedProducts = selectedProducts;
+      currentSelectedProductIds = selectedProducts.map(product => product.productId);
+      outputRows = rows;
+      completedCount = index;
+    }
+
+    await writeZipFile(zip, `Flash Sale ${getFileDateStamp()} 8 files.zip`);
+    selectedProductBatches.forEach(selectedProducts => saveDownloadHistory(selectedProducts));
+
+    renderSummary(parsedProducts, currentSelectedProducts, outputRows);
+    renderDownloadHistory();
+    rerollBtn.disabled = false;
+    downloadBtn.disabled = true;
+    setBatchButtonLoading(downloadBatchBtn, false, '', defaultBatchButtonText);
+    setStatus(`Đã tải ZIP gồm ${BATCH_DOWNLOAD_COUNT} file và lưu lịch sử từng file.`, 'ok');
+  } catch (error) {
+    console.error(error);
+    renderDownloadHistory();
+
+    if (currentSelectedProducts.length) {
+      renderSummary(parsedProducts, currentSelectedProducts, outputRows);
+    }
+
+    rerollBtn.disabled = false;
+    setBatchButtonLoading(downloadBatchBtn, false, '', defaultBatchButtonText);
+    setStatus(`Lỗi sau khi tải ${completedCount} file: ${error.message}`, 'error');
+  }
 }
 
 function downloadInventoryFlashSale() {
@@ -1064,7 +1246,117 @@ function downloadInventoryFlashSale() {
   renderInventoryDownloadHistory();
   downloadInventoryBtn.disabled = true;
   setInventoryStatus('Đã lưu lịch sử tải. Bấm Random lại để tạo bộ mới trước lần tải tiếp theo.', 'ok');
-  writeFlashSaleFile(exportRows, 'Flash Sale theo tồn.xlsx');
+  writeFlashSaleFile(exportRows, `Flash Sale theo tồn ${getFileDateStamp()}.xlsx`);
+}
+
+async function downloadInventoryFlashSaleBatch() {
+  if (!inventoryProducts.length) return;
+
+  const defaultBatchButtonText = downloadInventoryBatchBtn.textContent;
+  rerollInventoryBtn.disabled = true;
+  downloadInventoryBtn.disabled = true;
+  setBatchButtonLoading(
+    downloadInventoryBatchBtn,
+    true,
+    `Đang tạo ZIP ${BATCH_DOWNLOAD_COUNT} file...`,
+    defaultBatchButtonText
+  );
+  setInventoryStatus(`Đang random và tạo ZIP ${BATCH_DOWNLOAD_COUNT} file...`, '');
+
+  let eligibleProducts;
+  let priceAdjustment;
+
+  try {
+    const minimumInventory = readNonNegativeInteger(
+      minimumInventoryInput,
+      'Tồn tối thiểu tại mỗi kho'
+    );
+    eligibleProducts = inventoryProducts
+      .map(product => ({
+        ...product,
+        variants: product.variants.filter(variant =>
+          variant.bnInventory >= minimumInventory &&
+          variant.hcmInventory >= minimumInventory
+        )
+      }))
+      .filter(product => product.variants.length > 0);
+    eligibleInventoryProductCountEl.textContent = eligibleProducts.length.toLocaleString('vi-VN');
+
+    if (eligibleProducts.length < INVENTORY_PRODUCT_COUNT) {
+      throw new Error(
+        `Chỉ có ${eligibleProducts.length} sản phẩm đạt tồn kho, cần ít nhất ${INVENTORY_PRODUCT_COUNT} sản phẩm.`
+      );
+    }
+
+    priceAdjustment = readPriceAdjustment(
+      inventoryPriceAdjustmentInput,
+      'Điều chỉnh giá theo tồn'
+    );
+  } catch (error) {
+    console.error(error);
+    setInventoryStatus(`Lỗi: ${error.message}`, 'error');
+    rerollInventoryBtn.disabled = false;
+    setBatchButtonLoading(downloadInventoryBatchBtn, false, '', defaultBatchButtonText);
+    return;
+  }
+
+  let completedCount = 0;
+
+  try {
+    const zip = createZipArchive();
+    const pendingProductIdLists = [];
+    const selectedProductBatches = [];
+    const deadline = Date.now() + BATCH_RANDOM_TIMEOUT_MS;
+
+    for (let index = 1; index <= BATCH_DOWNLOAD_COUNT; index += 1) {
+      const selectedProducts = await generateBatchUniqueSelection(
+        () => tryGenerateInventoryUniqueSelection(eligibleProducts, pendingProductIdLists, false),
+        deadline,
+        'Không random đủ 8 file không trùng sản phẩm nhau trong 15 giây. Hãy giảm ngưỡng tồn kho để tăng số sản phẩm phù hợp.'
+      );
+      const rows = buildOutputRowsFromProducts(selectedProducts);
+      const exportRows = buildAdjustedExportRowsWithAdjustment(rows, priceAdjustment);
+
+      if (!exportRows.length) {
+        throw new Error('Không tìm thấy dòng phân loại có giá bán để xuất.');
+      }
+
+      zip.file(
+        `Flash Sale theo tồn ${getFileDateStamp()} ${formatBatchNumber(index)}.xlsx`,
+        buildFlashSaleWorkbookData(exportRows)
+      );
+
+      pendingProductIdLists.push(selectedProducts.map(product => product.productId));
+      selectedProductBatches.push(selectedProducts);
+
+      currentInventorySelectedProducts = selectedProducts;
+      inventoryOutputRows = rows;
+      completedCount = index;
+    }
+
+    await writeZipFile(zip, `Flash Sale theo tồn ${getFileDateStamp()} 8 files.zip`);
+    selectedProductBatches.forEach(selectedProducts =>
+      saveDownloadHistory(selectedProducts, INVENTORY_DOWNLOAD_HISTORY_KEY)
+    );
+
+    renderInventorySummary(currentInventorySelectedProducts);
+    renderInventoryDownloadHistory();
+    rerollInventoryBtn.disabled = false;
+    downloadInventoryBtn.disabled = true;
+    setBatchButtonLoading(downloadInventoryBatchBtn, false, '', defaultBatchButtonText);
+    setInventoryStatus(`Đã tải ZIP gồm ${BATCH_DOWNLOAD_COUNT} file và lưu lịch sử từng file.`, 'ok');
+  } catch (error) {
+    console.error(error);
+    renderInventoryDownloadHistory();
+
+    if (currentInventorySelectedProducts.length) {
+      renderInventorySummary(currentInventorySelectedProducts);
+    }
+
+    rerollInventoryBtn.disabled = false;
+    setBatchButtonLoading(downloadInventoryBatchBtn, false, '', defaultBatchButtonText);
+    setInventoryStatus(`Lỗi sau khi tải ${completedCount} file: ${error.message}`, 'error');
+  }
 }
 
 function buildExportRows() {
@@ -1073,11 +1365,27 @@ function buildExportRows() {
 
 function buildAdjustedExportRows(rows, adjustmentInput, adjustmentLabel) {
   const priceAdjustment = readPriceAdjustment(adjustmentInput, adjustmentLabel);
+  return buildAdjustedExportRowsWithAdjustment(rows, priceAdjustment);
+}
 
+function buildAdjustedExportRowsWithAdjustment(rows, priceAdjustment) {
   return rows.map(row => ({
     ...row,
     'Giá đã giảm': adjustPrice(row['Giá đã giảm'], priceAdjustment)
   }));
+}
+
+function formatBatchNumber(number) {
+  return String(number).padStart(2, '0');
+}
+
+function getFileDateStamp() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
 }
 
 function readPriceAdjustment(input = priceAdjustmentInput, label = 'Điều chỉnh giá') {
@@ -1259,12 +1567,45 @@ function renderHistory(container, historyKey, showRank) {
 }
 
 function writeFlashSaleFile(exportRows, fileName = 'Flash Sale.xlsx') {
+  const workbook = createFlashSaleWorkbook(exportRows);
+  XLSX.writeFile(workbook, fileName);
+}
+
+function createFlashSaleWorkbook(exportRows) {
   const worksheet = XLSX.utils.json_to_sheet(exportRows, {
     header: ['Mã sản phẩm', 'Mã phân loại hàng', 'Giá đã giảm']
   });
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Flash Sale');
-  XLSX.writeFile(workbook, fileName);
+  return workbook;
+}
+
+function buildFlashSaleWorkbookData(exportRows) {
+  return XLSX.write(createFlashSaleWorkbook(exportRows), {
+    bookType: 'xlsx',
+    type: 'array'
+  });
+}
+
+function createZipArchive() {
+  if (typeof JSZip === 'undefined') {
+    throw new Error('Chưa tải được thư viện ZIP. Hãy kiểm tra kết nối mạng rồi tải lại trang.');
+  }
+
+  return new JSZip();
+}
+
+async function writeZipFile(zip, fileName) {
+  const blob = await zip.generateAsync({ type: 'blob' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
 function escapeHtml(value) {
