@@ -164,11 +164,7 @@ input[type="search"] {
   font-size: 14px;
 }
 
-.price-adjustment {
-  max-width: 320px;
-  margin-top: 18px;
-}
-
+.auto-fs-config,
 .inventory-config {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 320px));
@@ -403,6 +399,7 @@ th {
     grid-template-columns: 1fr;
   }
 
+  .auto-fs-config,
   .inventory-config {
     grid-template-columns: 1fr;
   }

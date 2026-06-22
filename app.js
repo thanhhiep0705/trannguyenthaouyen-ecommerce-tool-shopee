@@ -8,6 +8,7 @@ const variantCountEl = document.getElementById('variantCount');
 const totalProductCountEl = document.getElementById('totalProductCount');
 const previewBody = document.getElementById('previewBody');
 const historyBody = document.getElementById('historyBody');
+const autoMinimumInventoryInput = document.getElementById('autoMinimumInventory');
 const priceAdjustmentInput = document.getElementById('priceAdjustment');
 const refreshInventoryFsBtn = document.getElementById('refreshInventoryFsBtn');
 const rerollInventoryBtn = document.getElementById('rerollInventoryBtn');
@@ -632,13 +633,21 @@ function generateResult(prefixMessage = 'Đã random lại kết quả.') {
   }
 
   const groups = readGroups();
-  const selectedProducts = generateUniqueSelection(groups);
+  const eligibleProducts = getEligibleAutoFsProducts();
+  totalProductCountEl.textContent = eligibleProducts.length.toLocaleString('vi-VN');
+
+  if (!eligibleProducts.length) {
+    previewBody.innerHTML = '<tr><td colspan="4">Không có phân loại nào đạt tồn kho.</td></tr>';
+    throw new Error('Không có sản phẩm nào còn phân loại đạt ngưỡng tồn kho.');
+  }
+
+  const selectedProducts = generateUniqueSelection(groups, [], true, eligibleProducts);
   currentSelectedProducts = selectedProducts;
   currentSelectedProductIds = selectedProducts.map(product => product.productId);
 
   outputRows = buildOutputRowsFromProducts(selectedProducts);
 
-  renderSummary(parsedProducts, selectedProducts, outputRows);
+  renderSummary(eligibleProducts, selectedProducts, outputRows);
 
   if (!outputRows.length) {
     setStatus('Không tìm thấy dòng phân loại có giá bán để xuất.', 'error');
@@ -650,11 +659,17 @@ function generateResult(prefixMessage = 'Đã random lại kết quả.') {
   setStatus(`${prefixMessage} Bấm tải để xuất file.`, 'ok');
 }
 
-function generateUniqueSelection(groups, pendingProductIdLists = [], includeDownloadHistory = true) {
+function generateUniqueSelection(
+  groups,
+  pendingProductIdLists = [],
+  includeDownloadHistory = true,
+  products = parsedProducts
+) {
   const selection = tryGenerateUniqueSelection(
     groups,
     pendingProductIdLists,
-    includeDownloadHistory
+    includeDownloadHistory,
+    products
   );
 
   if (selection) {
@@ -668,9 +683,14 @@ function generateUniqueSelection(groups, pendingProductIdLists = [], includeDown
   throw new Error('Không random được bộ mới không trùng sản phẩm nào với 5 lần tải gần nhất. Hãy giảm số lượng lấy hoặc đổi khoảng top.');
 }
 
-function tryGenerateUniqueSelection(groups, pendingProductIdLists = [], includeDownloadHistory = true) {
+function tryGenerateUniqueSelection(
+  groups,
+  pendingProductIdLists = [],
+  includeDownloadHistory = true,
+  products = parsedProducts
+) {
   for (let attempt = 0; attempt < MAX_RANDOM_ATTEMPTS; attempt += 1) {
-    const selectedProducts = selectProductsForGroups(groups);
+    const selectedProducts = selectProductsForGroups(groups, products);
     const selectedProductIds = selectedProducts.map(product => product.productId);
 
     if (hasDuplicateValues(selectedProductIds)) {
@@ -811,13 +831,29 @@ function tryGenerateInventoryUniqueSelection(
   return null;
 }
 
-function selectProductsForGroups(groups) {
+function selectProductsForGroups(groups, products = parsedProducts) {
   return groups.flatMap(group => {
-    const productsInRange = parsedProducts.filter(product =>
+    const productsInRange = products.filter(product =>
       product.rank >= group.from && product.rank <= group.to
     );
     return sampleProducts(productsInRange, group.count, group.name);
   });
+}
+
+function getEligibleAutoFsProducts() {
+  const minimumInventory = readNonNegativeInteger(
+    autoMinimumInventoryInput,
+    'Tồn kho phân loại tối thiểu'
+  );
+
+  return parsedProducts
+    .map(product => ({
+      ...product,
+      variants: product.variants.filter(variant =>
+        variant.totalInventory >= minimumInventory
+      )
+    }))
+    .filter(product => product.variants.length > 0);
 }
 
 function getMaxHistoryDuplicateCount(
@@ -864,6 +900,7 @@ function loadSavedConfig() {
     }
 
     setInputValue(priceAdjustmentInput, config.priceAdjustment);
+    setInputValue(autoMinimumInventoryInput, config.autoMinimumInventory);
     setInputValue(minimumInventoryInput, config.minimumInventory);
     setInputValue(inventoryPriceAdjustmentInput, config.inventoryPriceAdjustment);
   } catch (error) {
@@ -878,6 +915,7 @@ function saveCurrentConfig() {
       to: group.to.value,
       count: group.count.value
     })),
+    autoMinimumInventory: autoMinimumInventoryInput.value,
     priceAdjustment: priceAdjustmentInput.value,
     minimumInventory: minimumInventoryInput.value,
     inventoryPriceAdjustment: inventoryPriceAdjustmentInput.value
@@ -894,6 +932,7 @@ function getConfigInputs() {
   return groupInputs.flatMap(group => [group.from, group.to, group.count])
     .concat([
       priceAdjustmentInput,
+      autoMinimumInventoryInput,
       minimumInventoryInput,
       inventoryPriceAdjustmentInput
     ]);
@@ -981,9 +1020,10 @@ function parsePivotRows(rows) {
   const productCol = headers.findIndex(header => header === 'ma san pham');
   const variantCol = headers.findIndex(header => header.includes('ma phan loai'));
   const priceCol = headers.findIndex(header => header.includes('gia'));
+  const totalInventoryCol = headers.findIndex(header => header.includes('tong ton kho'));
 
-  if (productCol === -1 || variantCol === -1 || priceCol === -1) {
-    throw new Error('Thiếu cột bắt buộc trong file.');
+  if (productCol === -1 || variantCol === -1 || priceCol === -1 || totalInventoryCol === -1) {
+    throw new Error('Thiếu cột bắt buộc trong file. Sheet Pivot Table cần có Mã sản phẩm, Mã phân loại hàng, Giá đã giảm và Tổng Tồn Kho.');
   }
 
   const products = [];
@@ -993,6 +1033,7 @@ function parsePivotRows(rows) {
     const productId = cleanCell(row[productCol]);
     const variantId = cleanCell(row[variantCol]);
     const price = cleanCell(row[priceCol]);
+    const totalInventory = parseOptionalNumber(row[totalInventoryCol]);
 
     if (productId && productId.toLowerCase() !== 'grand total') {
       currentProduct = {
@@ -1007,7 +1048,11 @@ function parsePivotRows(rows) {
       continue;
     }
 
-    currentProduct.variants.push({ variantId, price });
+    currentProduct.variants.push({
+      variantId,
+      price,
+      totalInventory: totalInventory === null ? 0 : totalInventory
+    });
   }
 
   return products.filter(product => product.variants.length > 0);
@@ -1224,9 +1269,17 @@ async function downloadFlashSaleBatch() {
 
   let groups;
   let priceAdjustment;
+  let eligibleProducts;
 
   try {
     groups = readGroups();
+    eligibleProducts = getEligibleAutoFsProducts();
+    totalProductCountEl.textContent = eligibleProducts.length.toLocaleString('vi-VN');
+
+    if (!eligibleProducts.length) {
+      throw new Error('Không có sản phẩm nào còn phân loại đạt ngưỡng tồn kho.');
+    }
+
     priceAdjustment = readPriceAdjustment(priceAdjustmentInput, 'Điều chỉnh giá');
   } catch (error) {
     console.error(error);
@@ -1246,7 +1299,7 @@ async function downloadFlashSaleBatch() {
 
     for (let index = 1; index <= BATCH_DOWNLOAD_COUNT; index += 1) {
       const selectedProducts = await generateBatchUniqueSelection(
-        () => tryGenerateUniqueSelection(groups, pendingProductIdLists, false),
+        () => tryGenerateUniqueSelection(groups, pendingProductIdLists, false, eligibleProducts),
         deadline,
         'Không random đủ 8 file không trùng sản phẩm nhau trong 15 giây. Hãy giảm số lượng lấy hoặc đổi khoảng top.'
       );
@@ -1274,7 +1327,7 @@ async function downloadFlashSaleBatch() {
     await writeZipFile(zip, `Flash Sale ${getFileDateStamp()} 8 files.zip`);
     selectedProductBatches.forEach(selectedProducts => saveDownloadHistory(selectedProducts));
 
-    renderSummary(parsedProducts, currentSelectedProducts, outputRows);
+    renderSummary(eligibleProducts, currentSelectedProducts, outputRows);
     renderDownloadHistory();
     rerollBtn.disabled = false;
     downloadBtn.disabled = true;
@@ -1285,7 +1338,7 @@ async function downloadFlashSaleBatch() {
     renderDownloadHistory();
 
     if (currentSelectedProducts.length) {
-      renderSummary(parsedProducts, currentSelectedProducts, outputRows);
+      renderSummary(eligibleProducts, currentSelectedProducts, outputRows);
     }
 
     rerollBtn.disabled = false;

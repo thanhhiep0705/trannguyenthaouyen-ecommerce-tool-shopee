@@ -91,9 +91,15 @@
         </div>
       </section>
 
-      <section class="price-adjustment" aria-label="Điều chỉnh giá">
-        <label for="priceAdjustment">Điều chỉnh giá đã giảm</label>
-        <input id="priceAdjustment" type="number" step="1000" value="0" placeholder="Ví dụ: 10000 hoặc -10000">
+      <section class="auto-fs-config" aria-label="Cấu hình Auto FS">
+        <div class="field">
+          <label for="autoMinimumInventory">Tồn kho phân loại tối thiểu</label>
+          <input id="autoMinimumInventory" type="number" min="0" step="1" value="200">
+        </div>
+        <div class="field">
+          <label for="priceAdjustment">Điều chỉnh giá đã giảm</label>
+          <input id="priceAdjustment" type="number" step="1000" value="0" placeholder="Ví dụ: 10000 hoặc -10000">
+        </div>
       </section>
 
       <section class="summary" aria-label="Tóm tắt kết quả">
@@ -107,7 +113,7 @@
         </div>
         <div class="metric">
           <strong id="totalProductCount">0</strong>
-          <span>Sản phẩm đọc được</span>
+          <span>Sản phẩm hợp lệ</span>
         </div>
       </section>
 
