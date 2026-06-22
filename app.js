@@ -65,6 +65,7 @@ const GOOGLE_SHEET_GID = '1099495700';
 const LAST_MONTH_REVENUE_SHEET = 'Last Month Revenue';
 const THIS_MONTH_REVENUE_SHEET = 'This Month Revenue';
 const DOWNLOAD_HISTORY_KEY = 'flashSaleRecentDownloadedProductIds';
+const CONFIG_STORAGE_KEY = 'flashSaleToolConfig';
 const INVENTORY_SHEET = 'FS theo tồn';
 const INVENTORY_DOWNLOAD_HISTORY_KEY = 'inventoryFlashSaleRecentDownloadedProductIds';
 const INVENTORY_PRODUCT_COUNT = 10;
@@ -103,6 +104,8 @@ dashboardSearchInput.addEventListener('input', () => {
 tabButtons.forEach(button => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
 });
+loadSavedConfig();
+bindConfigPersistence();
 renderDownloadHistory();
 renderInventoryDownloadHistory();
 handleGoogleSheet();
@@ -835,6 +838,71 @@ function getMaxHistoryDuplicateCount(
   return Math.max(...historyProductIdLists.map(historyProductIds =>
     historyProductIds.filter(productId => currentIds.has(productId)).length
   ));
+}
+
+function bindConfigPersistence() {
+  getConfigInputs().forEach(input => {
+    input.addEventListener('input', saveCurrentConfig);
+    input.addEventListener('change', saveCurrentConfig);
+  });
+}
+
+function loadSavedConfig() {
+  try {
+    const config = JSON.parse(localStorage.getItem(CONFIG_STORAGE_KEY) || '{}');
+    if (!config || typeof config !== 'object') return;
+
+    if (Array.isArray(config.groups)) {
+      config.groups.forEach((groupConfig, index) => {
+        const group = groupInputs[index];
+        if (!group || !groupConfig || typeof groupConfig !== 'object') return;
+
+        setInputValue(group.from, groupConfig.from);
+        setInputValue(group.to, groupConfig.to);
+        setInputValue(group.count, groupConfig.count);
+      });
+    }
+
+    setInputValue(priceAdjustmentInput, config.priceAdjustment);
+    setInputValue(minimumInventoryInput, config.minimumInventory);
+    setInputValue(inventoryPriceAdjustmentInput, config.inventoryPriceAdjustment);
+  } catch (error) {
+    console.warn('Không đọc được cấu hình đã lưu:', error);
+  }
+}
+
+function saveCurrentConfig() {
+  const config = {
+    groups: groupInputs.map(group => ({
+      from: group.from.value,
+      to: group.to.value,
+      count: group.count.value
+    })),
+    priceAdjustment: priceAdjustmentInput.value,
+    minimumInventory: minimumInventoryInput.value,
+    inventoryPriceAdjustment: inventoryPriceAdjustmentInput.value
+  };
+
+  try {
+    localStorage.setItem(CONFIG_STORAGE_KEY, JSON.stringify(config));
+  } catch (error) {
+    console.warn('Không lưu được cấu hình:', error);
+  }
+}
+
+function getConfigInputs() {
+  return groupInputs.flatMap(group => [group.from, group.to, group.count])
+    .concat([
+      priceAdjustmentInput,
+      minimumInventoryInput,
+      inventoryPriceAdjustmentInput
+    ]);
+}
+
+function setInputValue(input, value) {
+  if (typeof value === 'string') {
+    input.value = value;
+  }
 }
 
 function readGroups() {
