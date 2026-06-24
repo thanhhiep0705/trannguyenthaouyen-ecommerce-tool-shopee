@@ -11,250 +11,211 @@
 </head>
 <body>
   <main>
-    <nav class="tabs" aria-label="Menu chính">
-      <button class="tab-button active" type="button" data-tab="autoFsPanel">Auto FS</button>
-      <button class="tab-button" type="button" data-tab="inventoryFsPanel">FS theo tồn</button>
-      <button class="tab-button" type="button" data-tab="dashboardPanel">Dashboard</button>
-    </nav>
+    <header class="app-header">
+      <a class="brand" href="#" aria-label="Mi Tools - Trang chủ">
+        <span class="brand-mark" aria-hidden="true">M</span>
+        <span>
+          <strong>Mi Tools</strong>
+          <small>Sales workspace</small>
+        </span>
+      </a>
+      <nav class="tabs" role="tablist" aria-label="Menu chính">
+        <button class="tab-button active" type="button" role="tab" data-tab="autoFsPanel" aria-controls="autoFsPanel" aria-selected="true">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6m10-6v6M5 12h14v8H5z"/></svg>
+          Auto FS
+        </button>
+        <button class="tab-button" type="button" role="tab" data-tab="dashboardPanel" aria-controls="dashboardPanel" aria-selected="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10m7 10V4m7 16v-7"/></svg>
+          Dashboard
+        </button>
+      </nav>
+    </header>
 
-    <section id="autoFsPanel" class="tab-panel active">
+    <section id="autoFsPanel" class="tab-panel active" role="tabpanel">
       <div class="page-heading">
         <div>
+          <span class="eyebrow">FLASH SALE GENERATOR</span>
           <h1>Tạo File Flash Sale</h1>
-          <p>Công cụ lấy dữ liệu từ Google Sheet cố định, random sản phẩm theo 3 đoạn top bên dưới, rồi xuất tất cả phân loại và giá bán tương ứng.</p>
+          <p>Chọn sản phẩm theo từng khoảng xếp hạng và xuất file Flash Sale sẵn sàng sử dụng.</p>
         </div>
-        <button id="refreshAutoFsBtn" class="refresh-button" type="button">Refresh</button>
+        <button id="refreshAutoFsBtn" class="refresh-button" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5M18.5 9A7 7 0 0 0 6.8 6.4L4 11m16 2-2.8 4.6A7 7 0 0 1 5.5 15"/></svg>
+          Làm mới dữ liệu
+        </button>
       </div>
 
-      <section class="upload">
-        <div class="actions">
-          <button id="rerollBtn" type="button" disabled>Random lại</button>
-          <button id="downloadBtn" type="button" disabled>Tải Flash Sale.xlsx</button>
-          <button id="downloadBatchBtn" type="button" disabled>Random & tải ZIP 8 file</button>
-        </div>
-        <div id="status" class="status"></div>
-      </section>
+      <div class="workspace-grid">
+        <div class="workspace-main">
+          <section class="panel config-panel" aria-label="Cấu hình nhóm top">
+            <div class="panel-heading">
+              <div>
+                <span class="step-label">BƯỚC 1</span>
+                <h2>Thiết lập khoảng sản phẩm</h2>
+              </div>
+              <span class="panel-note">Cấu hình được tự động lưu</span>
+            </div>
+            <div class="config">
+              <div class="group-config">
+                <div class="group-title"><span>01</span><h3>Nhóm đầu bảng</h3></div>
+                <div class="fields">
+                  <div class="field">
+                    <label for="group1From">Từ top</label>
+                    <input id="group1From" type="number" min="1" step="1" value="1">
+                  </div>
+                  <div class="field">
+                    <label for="group1To">Đến top</label>
+                    <input id="group1To" type="number" min="1" step="1" value="10">
+                  </div>
+                  <div class="field count-field">
+                    <label for="group1Count">Số lượng</label>
+                    <input id="group1Count" type="number" min="0" step="1" value="2">
+                  </div>
+                </div>
+              </div>
 
-      <section class="config" aria-label="Cấu hình nhóm top">
-        <div class="group-config">
-          <h2>Đoạn 1</h2>
-          <div class="fields">
-            <div class="field">
-              <label for="group1From">Từ top</label>
-              <input id="group1From" type="number" min="1" step="1" value="1">
+              <div class="group-config">
+                <div class="group-title"><span>02</span><h3>Nhóm giữa bảng</h3></div>
+                <div class="fields">
+                  <div class="field">
+                    <label for="group2From">Từ top</label>
+                    <input id="group2From" type="number" min="1" step="1" value="11">
+                  </div>
+                  <div class="field">
+                    <label for="group2To">Đến top</label>
+                    <input id="group2To" type="number" min="1" step="1" value="100">
+                  </div>
+                  <div class="field count-field">
+                    <label for="group2Count">Số lượng</label>
+                    <input id="group2Count" type="number" min="0" step="1" value="3">
+                  </div>
+                </div>
+              </div>
+
+              <div class="group-config">
+                <div class="group-title"><span>03</span><h3>Nhóm cuối bảng</h3></div>
+                <div class="fields">
+                  <div class="field">
+                    <label for="group3From">Từ top</label>
+                    <input id="group3From" type="number" min="1" step="1" value="101">
+                  </div>
+                  <div class="field">
+                    <label for="group3To">Đến top</label>
+                    <input id="group3To" type="number" min="1" step="1" placeholder="Không giới hạn">
+                  </div>
+                  <div class="field count-field">
+                    <label for="group3Count">Số lượng</label>
+                    <input id="group3Count" type="number" min="0" step="1" value="5">
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="field">
-              <label for="group1To">Đến top</label>
-              <input id="group1To" type="number" min="1" step="1" value="10">
+          </section>
+
+          <section class="panel" aria-label="Cấu hình Auto FS">
+            <div class="panel-heading">
+              <div>
+                <span class="step-label">BƯỚC 2</span>
+                <h2>Điều kiện xuất file</h2>
+              </div>
             </div>
-            <div class="field">
-              <label for="group1Count">Lấy</label>
-              <input id="group1Count" type="number" min="0" step="1" value="2">
+            <div class="auto-fs-config">
+              <div class="field">
+                <label for="autoMinimumInventory">Tồn kho phân loại tối thiểu</label>
+                <div class="input-with-suffix">
+                  <input id="autoMinimumInventory" type="number" min="0" step="1" value="200">
+                  <span>sản phẩm</span>
+                </div>
+                <small>Chỉ xuất các phân loại đạt mức tồn này.</small>
+              </div>
+              <div class="field">
+                <label for="priceAdjustment">Điều chỉnh giá đã giảm</label>
+                <div class="input-with-suffix">
+                  <input id="priceAdjustment" type="number" step="1000" value="0" placeholder="VD: -10000">
+                  <span>₫</span>
+                </div>
+                <small>Dùng số âm để giảm và số dương để tăng.</small>
+              </div>
             </div>
+          </section>
+        </div>
+
+        <aside class="export-card">
+          <span class="step-label light">BƯỚC 3</span>
+          <h2>Tạo file Flash Sale</h2>
+          <p>Dữ liệu sẽ được random theo cấu hình bên trái và tải trực tiếp về máy.</p>
+          <div id="status" class="status" role="status" aria-live="polite"></div>
+          <div class="download-actions" role="group" aria-label="Tùy chọn tải file Auto FS">
+            <button id="downloadBtn" class="primary-action" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg>
+              <span><strong>Random & tải 1 file</strong><small>File Excel .xlsx</small></span>
+            </button>
+            <button id="downloadBatchBtn" class="batch-button" type="button" disabled>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V4h12v12h-3M4 8h12v12H4z"/></svg>
+              <span><strong>Tạo & tải 8 file</strong><small>Gộp trong file ZIP</small></span>
+            </button>
           </div>
-        </div>
-
-        <div class="group-config">
-          <h2>Đoạn 2</h2>
-          <div class="fields">
-            <div class="field">
-              <label for="group2From">Từ top</label>
-              <input id="group2From" type="number" min="1" step="1" value="11">
-            </div>
-            <div class="field">
-              <label for="group2To">Đến top</label>
-              <input id="group2To" type="number" min="1" step="1" value="100">
-            </div>
-            <div class="field">
-              <label for="group2Count">Lấy</label>
-              <input id="group2Count" type="number" min="0" step="1" value="3">
-            </div>
+          <div class="export-hint">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v-5m0-3h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
+            Các file trong cùng một ZIP không trùng sản phẩm.
           </div>
-        </div>
-
-        <div class="group-config">
-          <h2>Đoạn 3</h2>
-          <div class="fields">
-            <div class="field">
-              <label for="group3From">Từ top</label>
-              <input id="group3From" type="number" min="1" step="1" value="101">
-            </div>
-            <div class="field">
-              <label for="group3To">Đến top</label>
-              <input id="group3To" type="number" min="1" step="1" placeholder="Trở đi">
-            </div>
-            <div class="field">
-              <label for="group3Count">Lấy</label>
-              <input id="group3Count" type="number" min="0" step="1" value="5">
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="auto-fs-config" aria-label="Cấu hình Auto FS">
-        <div class="field">
-          <label for="autoMinimumInventory">Tồn kho phân loại tối thiểu</label>
-          <input id="autoMinimumInventory" type="number" min="0" step="1" value="200">
-        </div>
-        <div class="field">
-          <label for="priceAdjustment">Điều chỉnh giá đã giảm</label>
-          <input id="priceAdjustment" type="number" step="1000" value="0" placeholder="Ví dụ: 10000 hoặc -10000">
-        </div>
-      </section>
-
-      <section class="summary" aria-label="Tóm tắt kết quả">
-        <div class="metric">
-          <strong id="productCount">0</strong>
-          <span>Sản phẩm được chọn</span>
-        </div>
-        <div class="metric">
-          <strong id="variantCount">0</strong>
-          <span>Dòng phân loại xuất ra</span>
-        </div>
-        <div class="metric">
-          <strong id="totalProductCount">0</strong>
-          <span>Sản phẩm hợp lệ</span>
-        </div>
-      </section>
-
-      <section class="preview">
-        <table>
-          <thead>
-            <tr>
-              <th>Nhóm random</th>
-              <th>Hạng</th>
-              <th>Mã sản phẩm</th>
-              <th>Số phân loại</th>
-            </tr>
-          </thead>
-          <tbody id="previewBody">
-            <tr>
-              <td colspan="4">Chưa có dữ liệu.</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="history" aria-label="5 lần tải gần nhất">
-        <h2>5 lần tải gần nhất</h2>
-        <div id="historyBody" class="history-grid">
-          <div class="empty-history">Chưa có lịch sử tải.</div>
-        </div>
-      </section>
-    </section>
-
-    <section id="inventoryFsPanel" class="tab-panel">
-      <div class="page-heading">
-        <div>
-          <h1>Tạo File Flash Sale Theo Tồn</h1>
-          <p>Random 10 sản phẩm từ sheet FS theo tồn. Chỉ các phân loại có tồn kho BN và HCM cùng đạt ngưỡng mới được xuất.</p>
-        </div>
-        <button id="refreshInventoryFsBtn" class="refresh-button" type="button">Refresh</button>
+        </aside>
       </div>
 
-      <section class="upload">
-        <div class="actions">
-          <button id="rerollInventoryBtn" type="button" disabled>Random lại</button>
-          <button id="downloadInventoryBtn" type="button" disabled>Tải Flash Sale.xlsx</button>
-          <button id="downloadInventoryBatchBtn" type="button" disabled>Random & tải ZIP 8 file</button>
-        </div>
-        <div id="inventoryStatus" class="status"></div>
-      </section>
-
-      <section class="inventory-config" aria-label="Cấu hình tồn kho">
-        <div class="field">
-          <label for="minimumInventory">Tồn tối thiểu tại mỗi kho</label>
-          <input id="minimumInventory" type="number" min="0" step="1" value="200">
-        </div>
-        <div class="field">
-          <label for="inventoryPriceAdjustment">Điều chỉnh giá đã giảm</label>
-          <input id="inventoryPriceAdjustment" type="number" step="1000" value="0" placeholder="Ví dụ: 10000 hoặc -10000">
-        </div>
-      </section>
-
-      <section class="summary" aria-label="Tóm tắt kết quả theo tồn">
-        <div class="metric">
-          <strong id="inventoryProductCount">0</strong>
-          <span>Sản phẩm được chọn</span>
-        </div>
-        <div class="metric">
-          <strong id="inventoryVariantCount">0</strong>
-          <span>Dòng phân loại xuất ra</span>
-        </div>
-        <div class="metric">
-          <strong id="eligibleInventoryProductCount">0</strong>
-          <span>Sản phẩm đạt tồn kho</span>
-        </div>
-      </section>
-
-      <section class="preview">
-        <table>
-          <thead>
-            <tr>
-              <th>Mã sản phẩm</th>
-              <th>Số phân loại đạt tồn</th>
-              <th>Tồn BN thấp nhất</th>
-              <th>Tồn HCM thấp nhất</th>
-            </tr>
-          </thead>
-          <tbody id="inventoryPreviewBody">
-            <tr>
-              <td colspan="4">Chưa có dữ liệu.</td>
-            </tr>
-          </tbody>
-        </table>
-      </section>
-
-      <section class="history" aria-label="5 lần tải theo tồn gần nhất">
-        <h2>5 lần tải gần nhất</h2>
-        <div id="inventoryHistoryBody" class="history-grid">
-          <div class="empty-history">Chưa có lịch sử tải.</div>
-        </div>
-      </section>
     </section>
 
-    <section id="dashboardPanel" class="tab-panel">
+    <section id="dashboardPanel" class="tab-panel" role="tabpanel">
       <div class="page-heading">
         <div>
+          <span class="eyebrow">REVENUE OVERVIEW</span>
           <h1>Dashboard</h1>
-          <p>So sánh doanh thu giữa sheet Last Month Revenue và This Month Revenue theo sản phẩm và phân loại.</p>
+          <p>Theo dõi thay đổi doanh thu theo sản phẩm và phân loại hàng.</p>
         </div>
-        <button id="refreshDashboardBtn" class="refresh-button" type="button">Refresh</button>
+        <button id="refreshDashboardBtn" class="refresh-button" type="button">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5M18.5 9A7 7 0 0 0 6.8 6.4L4 11m16 2-2.8 4.6A7 7 0 0 1 5.5 15"/></svg>
+          Cập nhật
+        </button>
       </div>
-      <div id="dashboardStatus" class="status"></div>
+      <div id="dashboardStatus" class="status dashboard-status" role="status" aria-live="polite"></div>
 
       <section class="summary dashboard-summary" aria-label="Tóm tắt dashboard">
-        <div class="metric">
-          <strong id="lastMonthTotal">0</strong>
+        <div class="metric metric-previous">
+          <span class="metric-icon" aria-hidden="true">₫</span>
           <span>Doanh thu tháng trước</span>
+          <strong id="lastMonthTotal">0</strong>
         </div>
-        <div class="metric">
-          <strong id="thisMonthTotal">0</strong>
+        <div class="metric metric-current">
+          <span class="metric-icon" aria-hidden="true">₫</span>
           <span>Doanh thu tháng này</span>
+          <strong id="thisMonthTotal">0</strong>
         </div>
-        <div class="metric">
+        <div class="metric metric-change">
+          <span class="metric-icon" aria-hidden="true">↗</span>
+          <span>Tăng / giảm</span>
           <strong id="dashboardChange">0%</strong>
-          <span>Tăng/Giảm</span>
         </div>
       </section>
 
-      <section class="dashboard-section">
+      <section class="panel dashboard-section">
         <div class="section-heading">
-          <h2>Doanh thu theo sản phẩm và phân loại</h2>
+          <div>
+            <h2>Chi tiết doanh thu</h2>
+            <p>Danh sách được sắp xếp theo doanh thu tháng này.</p>
+          </div>
           <div class="dashboard-tools">
-            <input id="dashboardSearch" type="search" placeholder="Nhập mã hoặc tên">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+            <input id="dashboardSearch" type="search" placeholder="Tìm mã hoặc tên sản phẩm">
           </div>
         </div>
         <div class="preview">
           <table>
             <thead>
               <tr>
-                <th>Mã</th>
-                <th>Tên</th>
-                <th>Tháng trước</th>
-                <th>Tháng này</th>
-                <th>Chênh lệch</th>
-                <th>%</th>
+                <th>Mã sản phẩm</th>
+                <th>Tên sản phẩm / phân loại</th>
+                <th class="numeric-cell">Tháng trước</th>
+                <th class="numeric-cell">Tháng này</th>
+                <th class="numeric-cell">Chênh lệch</th>
+                <th>Thay đổi</th>
               </tr>
             </thead>
             <tbody id="revenueTreeBody">
