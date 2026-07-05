@@ -8,9 +8,15 @@ const refreshDashboardBtn = document.getElementById('refreshDashboardBtn');
 const dashboardStatusEl = document.getElementById('dashboardStatus');
 const lastMonthTotalEl = document.getElementById('lastMonthTotal');
 const thisMonthTotalEl = document.getElementById('thisMonthTotal');
+const thisMonthTrendingEl = document.getElementById('thisMonthTrending');
 const dashboardChangeEl = document.getElementById('dashboardChange');
 const revenueTreeBody = document.getElementById('revenueTreeBody');
 const dashboardSearchInput = document.getElementById('dashboardSearch');
+const searchSummaryBar = document.getElementById('searchSummaryBar');
+const searchTotalJunEl = document.getElementById('searchTotalJun');
+const searchTotalJulyEl = document.getElementById('searchTotalJuly');
+const searchTotalTrendingEl = document.getElementById('searchTotalTrending');
+const searchTotalChangeEl = document.getElementById('searchTotalChange');
 const tabButtons = document.querySelectorAll('.tab-button');
 const tabPanels = document.querySelectorAll('.tab-panel');
 
@@ -38,8 +44,8 @@ let dashboardLoaded = false;
 
 const GOOGLE_SHEET_ID = '1Pi__I2Uwd3OTGp7ff8Ju6qC0oQHidTZMu11ljZbNPM4';
 const GOOGLE_SHEET_GID = '1099495700';
-const LAST_MONTH_REVENUE_SHEET = 'Last Month Revenue';
-const THIS_MONTH_REVENUE_SHEET = 'This Month Revenue';
+const LAST_MONTH_REVENUE_SHEET = 'Jun';
+const THIS_MONTH_REVENUE_SHEET = 'July';
 const DOWNLOAD_HISTORY_KEY = 'flashSaleRecentDownloadedProductIds';
 const CONFIG_STORAGE_KEY = 'flashSaleToolConfig';
 const MAX_DOWNLOAD_HISTORY = 5;
@@ -191,7 +197,7 @@ async function handleDashboard() {
     currentRevenueTree = revenueTree;
     dashboardLoaded = true;
 
-    renderDashboardSummary(lastMonthData.totalRevenue, thisMonthData.totalRevenue);
+    renderDashboardSummary(lastMonthData.totalRevenue, thisMonthData.totalRevenue, thisMonthData.totalTrending);
     renderRevenueTree(revenueTree);
     setDashboardStatus('Đã cập nhật Dashboard.', 'ok');
   } catch (error) {
@@ -231,6 +237,7 @@ function parseRevenueRows(rows, sheetName) {
   const productNameCol = headers.findIndex(header => header === 'san pham' || header.includes('ten san pham'));
   const variantNameCol = headers.findIndex(header => header.includes('ten phan loai'));
   const revenueCol = findRevenueColumn(headers, rows.slice(headerIndex + 1));
+  const trendingCol = headers.findIndex(header => header === 'trending' || header.includes('trending'));
 
   if (productCol === -1 || revenueCol === -1) {
     throw new Error(`Sheet "${sheetName}" cần có cột Mã sản phẩm và cột doanh thu.`);
@@ -258,19 +265,23 @@ function parseRevenueRows(rows, sheetName) {
       continue;
     }
 
+    const trendingVal = trendingCol === -1 ? null : parseOptionalNumber(row[trendingCol]);
+    const trending = trendingVal === null ? revenue : trendingVal;
+
     if (hasVariant) {
-      addRevenue(variantProductRevenue, currentProductId, currentProductId, revenue, '', productName);
+      addRevenue(variantProductRevenue, currentProductId, currentProductId, revenue, trending, '', productName);
       const variantKey = `${currentProductId}||${variantId}`;
-      addRevenue(variants, variantKey, variantId, revenue, currentProductId, variantName);
+      addRevenue(variants, variantKey, variantId, revenue, trending, currentProductId, variantName);
     } else if (productCell && productCell.toLowerCase() !== 'grand total') {
-      addRevenue(explicitProductRevenue, currentProductId, currentProductId, revenue, '', productName);
+      addRevenue(explicitProductRevenue, currentProductId, currentProductId, revenue, trending, '', productName);
     }
   }
 
   const products = mergeProductRevenue(explicitProductRevenue, variantProductRevenue);
   const totalRevenue = [...products.values()].reduce((total, product) => total + product.revenue, 0);
+  const totalTrending = [...products.values()].reduce((total, product) => total + product.trending, 0);
 
-  return { products, variants, totalRevenue };
+  return { products, variants, totalRevenue, totalTrending };
 }
 
 function mergeProductRevenue(explicitProductRevenue, variantProductRevenue) {
@@ -333,13 +344,14 @@ function findRevenueColumn(headers, dataRows) {
   return bestIndex;
 }
 
-function addRevenue(map, key, label, revenue, productId = '', name = '') {
+function addRevenue(map, key, label, revenue, trending, productId = '', name = '') {
   const current = map.get(key) || {
     key,
     label,
     productId,
     name,
-    revenue: 0
+    revenue: 0,
+    trending: 0
   };
 
   if (!current.name && name) {
@@ -347,6 +359,7 @@ function addRevenue(map, key, label, revenue, productId = '', name = '') {
   }
 
   current.revenue += revenue;
+  current.trending += trending;
   map.set(key, current);
 }
 
@@ -358,9 +371,10 @@ function compareRevenueMaps(lastMonthMap, thisMonthMap) {
     const current = thisMonthMap.get(key);
     const lastRevenue = last ? last.revenue : 0;
     const thisRevenue = current ? current.revenue : 0;
-    const diff = thisRevenue - lastRevenue;
+    const trendingRevenue = current ? current.trending : (last ? last.revenue : 0);
+    const diff = trendingRevenue - lastRevenue;
     const percent = lastRevenue === 0
-      ? (thisRevenue === 0 ? 0 : null)
+      ? (trendingRevenue === 0 ? 0 : null)
       : (diff / lastRevenue) * 100;
     const source = current || last;
 
@@ -371,6 +385,7 @@ function compareRevenueMaps(lastMonthMap, thisMonthMap) {
       name: source.name || '',
       lastRevenue,
       thisRevenue,
+      trendingRevenue,
       diff,
       percent
     };
@@ -390,25 +405,55 @@ function buildRevenueTree(lastMonthData, thisMonthData) {
     variantsByProduct.get(variant.productId).push(variant);
   });
 
+  const getSortKey = item => Math.max(item.lastRevenue, item.thisRevenue, item.trendingRevenue);
+
   return productRows.map(product => ({
     ...product,
     variants: (variantsByProduct.get(product.key) || [])
-      .sort((a, b) => b.thisRevenue - a.thisRevenue)
-  })).sort((a, b) => b.thisRevenue - a.thisRevenue);
+      .sort((a, b) => getSortKey(b) - getSortKey(a))
+  })).sort((a, b) => getSortKey(b) - getSortKey(a));
 }
 
-function renderDashboardSummary(lastTotal, thisTotal) {
-  const diff = thisTotal - lastTotal;
+function renderDashboardSummary(lastTotal, thisTotal, thisTrendingTotal) {
+  const diff = thisTrendingTotal - lastTotal;
   const percent = lastTotal === 0 ? null : (diff / lastTotal) * 100;
 
   lastMonthTotalEl.textContent = formatCurrency(lastTotal);
   thisMonthTotalEl.textContent = formatCurrency(thisTotal);
+  if (thisMonthTrendingEl) {
+    thisMonthTrendingEl.textContent = formatCurrency(thisTrendingTotal);
+  }
   dashboardChangeEl.textContent = formatPercent(percent);
   dashboardChangeEl.className = getChangeClass(diff);
 }
 
 function renderRevenueTree(products) {
-  const filteredProducts = filterRevenueTree(products, dashboardSearchInput.value);
+  const query = (dashboardSearchInput.value || '').trim();
+  const filteredProducts = filterRevenueTree(products, query);
+
+  if (query && searchSummaryBar) {
+    let totalJun = 0;
+    let totalJuly = 0;
+    let totalTrending = 0;
+
+    filteredProducts.forEach(product => {
+      totalJun += product.lastRevenue || 0;
+      totalJuly += product.thisRevenue || 0;
+      totalTrending += product.trendingRevenue || 0;
+    });
+
+    const diff = totalTrending - totalJun;
+    const percent = totalJun === 0 ? (totalTrending === 0 ? 0 : null) : (diff / totalJun) * 100;
+
+    searchTotalJunEl.textContent = formatCurrency(totalJun);
+    searchTotalJulyEl.textContent = formatCurrency(totalJuly);
+    searchTotalTrendingEl.textContent = formatCurrency(totalTrending);
+    searchTotalChangeEl.textContent = formatPercent(percent);
+    searchTotalChangeEl.className = getChangeClass(diff);
+    searchSummaryBar.style.display = 'flex';
+  } else if (searchSummaryBar) {
+    searchSummaryBar.style.display = 'none';
+  }
 
   if (!filteredProducts.length) {
     const message = products.length ? 'Không tìm thấy mã phù hợp.' : 'Chưa có dữ liệu.';
@@ -479,7 +524,7 @@ function renderRevenueTreeRow(row, isProduct) {
       </td>
       <td>${formatCurrency(row.lastRevenue)}</td>
       <td>${formatCurrency(row.thisRevenue)}</td>
-      <td class="${diffClass}">${formatSignedCurrency(row.diff)}</td>
+      <td>${formatCurrency(row.trendingRevenue)}</td>
       <td class="percent-cell ${diffClass}">
         ${percentText}
         <div class="percent-bar">

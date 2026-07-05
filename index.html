@@ -180,13 +180,14 @@
       <section class="summary dashboard-summary" aria-label="Tóm tắt dashboard">
         <div class="metric metric-previous">
           <span class="metric-icon" aria-hidden="true">₫</span>
-          <span>Doanh thu tháng trước</span>
+          <span>Doanh thu Jun</span>
           <strong id="lastMonthTotal">0</strong>
         </div>
         <div class="metric metric-current">
           <span class="metric-icon" aria-hidden="true">₫</span>
-          <span>Doanh thu tháng này</span>
+          <span>Doanh thu July</span>
           <strong id="thisMonthTotal">0</strong>
+          <span class="metric-subtitle">Dự báo (Trending): <span id="thisMonthTrending">0</span></span>
         </div>
         <div class="metric metric-change">
           <span class="metric-icon" aria-hidden="true">↗</span>
@@ -199,11 +200,26 @@
         <div class="section-heading">
           <div>
             <h2>Chi tiết doanh thu</h2>
-            <p>Danh sách được sắp xếp theo doanh thu tháng này.</p>
+            <p>Danh sách được sắp xếp theo doanh thu July.</p>
           </div>
           <div class="dashboard-tools">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
             <input id="dashboardSearch" type="search" placeholder="Tìm mã hoặc tên sản phẩm">
+          </div>
+        </div>
+        <div id="searchSummaryBar" class="search-summary-bar" style="display: none;">
+          <span class="summary-label">Tổng kết quả tìm kiếm:</span>
+          <div class="summary-item">
+            <span>Jun:</span> <strong id="searchTotalJun">0</strong>
+          </div>
+          <div class="summary-item">
+            <span>July:</span> <strong id="searchTotalJuly">0</strong>
+          </div>
+          <div class="summary-item">
+            <span>Trending:</span> <strong id="searchTotalTrending">0</strong>
+          </div>
+          <div class="summary-item">
+            <span>% LM:</span> <strong id="searchTotalChange">0%</strong>
           </div>
         </div>
         <div class="preview">
@@ -212,10 +228,10 @@
               <tr>
                 <th>Mã sản phẩm</th>
                 <th>Tên sản phẩm / phân loại</th>
-                <th class="numeric-cell">Tháng trước</th>
-                <th class="numeric-cell">Tháng này</th>
-                <th class="numeric-cell">Chênh lệch</th>
-                <th>Thay đổi</th>
+                <th class="numeric-cell">Jun</th>
+                <th class="numeric-cell">July</th>
+                <th class="numeric-cell">Trending</th>
+                <th>% LM</th>
               </tr>
             </thead>
             <tbody id="revenueTreeBody">
