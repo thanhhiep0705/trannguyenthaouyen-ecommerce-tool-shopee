@@ -41,6 +41,9 @@ const groupInputs = [
 let parsedProducts = [];
 let currentRevenueTree = [];
 let dashboardLoaded = false;
+let currentSortColumn = '';
+let currentSortDirection = 'desc';
+const collapsedProductIds = new Set();
 
 const GOOGLE_SHEET_ID = '1Pi__I2Uwd3OTGp7ff8Ju6qC0oQHidTZMu11ljZbNPM4';
 const GOOGLE_SHEET_GID = '1099495700';
@@ -64,6 +67,43 @@ dashboardSearchInput.addEventListener('input', () => {
 tabButtons.forEach(button => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
 });
+// Bind sort handlers
+document.querySelectorAll('.sortable').forEach(header => {
+  header.addEventListener('click', () => {
+    const col = header.dataset.sort;
+    if (currentSortColumn === col) {
+      currentSortDirection = currentSortDirection === 'desc' ? 'asc' : 'desc';
+    } else {
+      currentSortColumn = col;
+      currentSortDirection = col === 'name' ? 'asc' : 'desc';
+    }
+    applySorting();
+    renderRevenueTree(currentRevenueTree);
+  });
+});
+
+// Bind collapse/expand handlers via event delegation
+revenueTreeBody.addEventListener('click', event => {
+  const toggleBtn = event.target.closest('.toggle-variants-btn');
+  if (!toggleBtn) return;
+
+  const productId = toggleBtn.dataset.productId;
+  const isCollapsed = collapsedProductIds.has(productId);
+
+  if (isCollapsed) {
+    collapsedProductIds.delete(productId);
+    toggleBtn.textContent = '▼';
+  } else {
+    collapsedProductIds.add(productId);
+    toggleBtn.textContent = '▶';
+  }
+
+  const variantRows = revenueTreeBody.querySelectorAll(`.revenue-variant-row[data-product-id="${CSS.escape(productId)}"]`);
+  variantRows.forEach(row => {
+    row.style.display = isCollapsed ? '' : 'none';
+  });
+});
+
 loadSavedConfig();
 bindConfigPersistence();
 handleGoogleSheet();
@@ -195,10 +235,13 @@ async function handleDashboard() {
     const thisMonthData = parseRevenueRows(thisMonthRows, THIS_MONTH_REVENUE_SHEET);
     const revenueTree = buildRevenueTree(lastMonthData, thisMonthData);
     currentRevenueTree = revenueTree;
+    if (currentSortColumn) {
+      applySorting();
+    }
     dashboardLoaded = true;
 
     renderDashboardSummary(lastMonthData.totalRevenue, thisMonthData.totalRevenue, thisMonthData.totalTrending);
-    renderRevenueTree(revenueTree);
+    renderRevenueTree(currentRevenueTree);
     setDashboardStatus('Đã cập nhật Dashboard.', 'ok');
   } catch (error) {
     console.error(error);
@@ -427,9 +470,58 @@ function renderDashboardSummary(lastTotal, thisTotal, thisTrendingTotal) {
   dashboardChangeEl.className = getChangeClass(diff);
 }
 
+function applySorting() {
+  if (!currentSortColumn) return;
+
+  const factor = currentSortDirection === 'asc' ? 1 : -1;
+
+  const sortFn = (a, b) => {
+    if (currentSortColumn === 'name') {
+      const valA = a.name || '';
+      const valB = b.name || '';
+      return valA.localeCompare(valB, 'vi', { sensitivity: 'base' }) * factor;
+    } else {
+      let valA = a[currentSortColumn];
+      let valB = b[currentSortColumn];
+
+      if (valA === null || valA === undefined) valA = -Infinity;
+      if (valB === null || valB === undefined) valB = -Infinity;
+
+      if (valA !== valB) {
+        return (valA - valB) * factor;
+      }
+      return (a.key || '').localeCompare(b.key || '');
+    }
+  };
+
+  currentRevenueTree.sort(sortFn);
+  currentRevenueTree.forEach(product => {
+    if (product.variants && product.variants.length > 0) {
+      product.variants.sort(sortFn);
+    }
+  });
+}
+
+function updateSortHeaderUI() {
+  const headers = document.querySelectorAll('.sortable');
+  headers.forEach(header => {
+    const col = header.dataset.sort;
+    const icon = header.querySelector('.sort-icon');
+    if (col === currentSortColumn) {
+      icon.textContent = currentSortDirection === 'asc' ? ' ▲' : ' ▼';
+      header.classList.add('active-sort');
+    } else {
+      icon.textContent = ' ↕';
+      header.classList.remove('active-sort');
+    }
+  });
+}
+
 function renderRevenueTree(products) {
   const query = (dashboardSearchInput.value || '').trim();
   const filteredProducts = filterRevenueTree(products, query);
+
+  updateSortHeaderUI();
 
   if (query && searchSummaryBar) {
     let totalJun = 0;
@@ -462,9 +554,10 @@ function renderRevenueTree(products) {
   }
 
   revenueTreeBody.innerHTML = filteredProducts.slice(0, 100).map(product => {
-    const productRow = renderRevenueTreeRow(product, true);
+    const isCollapsed = collapsedProductIds.has(product.key);
+    const productRow = renderRevenueTreeRow(product, true, isCollapsed);
     const variantRows = product.variants.map(variant =>
-      renderRevenueTreeRow(variant, false)
+      renderRevenueTreeRow(variant, false, isCollapsed)
     ).join('');
 
     return productRow + variantRows;
@@ -505,7 +598,7 @@ function matchesSearch(value, normalizedQuery) {
   return cleanCell(value).toLowerCase().includes(normalizedQuery);
 }
 
-function renderRevenueTreeRow(row, isProduct) {
+function renderRevenueTreeRow(row, isProduct, isCollapsedOrParentCollapsed = false) {
   const diffClass = getChangeClass(row.diff);
   const percentText = formatPercent(row.percent);
   const barWidth = getPercentBarWidth(row.percent);
@@ -516,9 +609,21 @@ function renderRevenueTreeRow(row, isProduct) {
   const name = row.name || '-';
   const escapedName = escapeHtml(name);
 
+  let toggleBtn = '';
+  if (isProduct) {
+    if (row.variants && row.variants.length > 0) {
+      const caret = isCollapsedOrParentCollapsed ? '▶' : '▼';
+      toggleBtn = `<button class="toggle-variants-btn" data-product-id="${escapeHtml(productId)}" aria-label="Thu gọn/mở rộng phân loại">${caret}</button> `;
+    } else {
+      toggleBtn = `<span class="toggle-placeholder"></span>`;
+    }
+  }
+
+  const hiddenStyle = (!isProduct && isCollapsedOrParentCollapsed) ? 'style="display: none;"' : '';
+
   return `
-    <tr class="${rowClass}">
-      <td>${escapeHtml(displayCode || '-')}</td>
+    <tr class="${rowClass}" ${hiddenStyle} data-product-id="${escapeHtml(productId)}">
+      <td>${toggleBtn}${escapeHtml(displayCode || '-')}</td>
       <td class="name-cell">
         <span class="name-ellipsis" title="${escapedName}">${escapedName}</span>
       </td>
