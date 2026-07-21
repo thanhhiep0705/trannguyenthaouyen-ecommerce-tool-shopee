@@ -19,6 +19,10 @@ const searchTotalTrendingEl = document.getElementById('searchTotalTrending');
 const searchTotalChangeEl = document.getElementById('searchTotalChange');
 const tabButtons = document.querySelectorAll('.tab-button');
 const tabPanels = document.querySelectorAll('.tab-panel');
+const dashboardTargetInput = document.getElementById('dashboardTarget');
+const trendingVsTargetEl = document.getElementById('trendingVsTarget');
+const toggleAllVariantsBtn = document.getElementById('toggleAllVariantsBtn');
+const toggleAllVariantsIcon = document.getElementById('toggleAllVariantsIcon');
 
 const groupInputs = [
   {
@@ -44,6 +48,8 @@ let dashboardLoaded = false;
 let currentSortColumn = '';
 let currentSortDirection = 'desc';
 const collapsedProductIds = new Set();
+let latestTrendingTotal = 0;
+const TARGET_STORAGE_KEY = 'flashSaleDashboardTarget';
 
 const GOOGLE_SHEET_ID = '1Pi__I2Uwd3OTGp7ff8Ju6qC0oQHidTZMu11ljZbNPM4';
 const GOOGLE_SHEET_GID = '1099495700';
@@ -64,6 +70,24 @@ refreshDashboardBtn.addEventListener('click', handleDashboard);
 dashboardSearchInput.addEventListener('input', () => {
   renderRevenueTree(currentRevenueTree);
 });
+if (dashboardTargetInput) {
+  dashboardTargetInput.addEventListener('input', handleTargetInput);
+}
+if (toggleAllVariantsBtn) {
+  toggleAllVariantsBtn.addEventListener('click', () => {
+    const shouldCollapseAll = collapsedProductIds.size === 0;
+    
+    if (shouldCollapseAll) {
+      currentRevenueTree.forEach(product => {
+        collapsedProductIds.add(product.key);
+      });
+    } else {
+      collapsedProductIds.clear();
+    }
+    
+    renderRevenueTree(currentRevenueTree);
+  });
+}
 tabButtons.forEach(button => {
   button.addEventListener('click', () => switchTab(button.dataset.tab));
 });
@@ -84,8 +108,12 @@ document.querySelectorAll('.sortable').forEach(header => {
 
 // Bind collapse/expand handlers via event delegation
 revenueTreeBody.addEventListener('click', event => {
-  const toggleBtn = event.target.closest('.toggle-variants-btn');
-  if (!toggleBtn) return;
+  // Match the first cell of a product row (contains the caret and product code)
+  const td = event.target.closest('.revenue-product-row td:first-child');
+  if (!td) return;
+
+  const toggleBtn = td.querySelector('.toggle-variants-btn');
+  if (!toggleBtn) return; // ignore if this product has no variants
 
   const productId = toggleBtn.dataset.productId;
   const isCollapsed = collapsedProductIds.has(productId);
@@ -102,10 +130,16 @@ revenueTreeBody.addEventListener('click', event => {
   variantRows.forEach(row => {
     row.style.display = isCollapsed ? '' : 'none';
   });
+
+  // Sync the global toggle icon state in the header
+  if (toggleAllVariantsIcon) {
+    toggleAllVariantsIcon.textContent = collapsedProductIds.size === 0 ? '▼' : '▶';
+  }
 });
 
 loadSavedConfig();
 bindConfigPersistence();
+initTarget();
 handleGoogleSheet();
 
 function switchTab(panelId) {
@@ -468,6 +502,9 @@ function renderDashboardSummary(lastTotal, thisTotal, thisTrendingTotal) {
   }
   dashboardChangeEl.textContent = formatPercent(percent);
   dashboardChangeEl.className = getChangeClass(diff);
+
+  latestTrendingTotal = thisTrendingTotal;
+  updateTrendingVsTargetComparison();
 }
 
 function applySorting() {
@@ -522,6 +559,10 @@ function renderRevenueTree(products) {
   const filteredProducts = filterRevenueTree(products, query);
 
   updateSortHeaderUI();
+
+  if (toggleAllVariantsIcon) {
+    toggleAllVariantsIcon.textContent = collapsedProductIds.size === 0 ? '▼' : '▶';
+  }
 
   if (query && searchSummaryBar) {
     let totalJun = 0;
@@ -876,6 +917,138 @@ function setInputValue(input, value) {
   if (typeof value === 'string') {
     input.value = value;
   }
+}
+
+function initTarget() {
+  let targetVal = 0;
+  
+  const urlTarget = getTargetFromUrl();
+  if (urlTarget !== null) {
+    targetVal = urlTarget;
+    try {
+      localStorage.setItem(TARGET_STORAGE_KEY, String(targetVal));
+    } catch (e) {
+      console.warn('Không lưu được target vào localStorage:', e);
+    }
+  } else {
+    try {
+      const saved = localStorage.getItem(TARGET_STORAGE_KEY);
+      if (saved !== null) {
+        targetVal = parseInt(saved, 10) || 0;
+      }
+    } catch (e) {
+      console.warn('Không đọc được target từ localStorage:', e);
+    }
+  }
+
+  if (dashboardTargetInput) {
+    dashboardTargetInput.value = formatTargetInput(targetVal);
+  }
+  
+  syncTargetToUrlHash(targetVal);
+  updateTrendingVsTargetComparison();
+}
+
+function getTargetFromUrl() {
+  try {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    if (hashParams.has('target')) {
+      const val = parseInt(hashParams.get('target'), 10);
+      return isNaN(val) ? null : val;
+    }
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('target')) {
+      const val = parseInt(urlParams.get('target'), 10);
+      return isNaN(val) ? null : val;
+    }
+  } catch (e) {
+    console.error('Lỗi khi đọc target từ URL:', e);
+  }
+  return null;
+}
+
+function syncTargetToUrlHash(targetVal) {
+  try {
+    const hashParams = new URLSearchParams(window.location.hash.substring(1));
+    if (targetVal > 0) {
+      hashParams.set('target', String(targetVal));
+    } else {
+      hashParams.delete('target');
+    }
+    const newHash = hashParams.toString();
+    const newHashStr = newHash ? `#${newHash}` : '#';
+    if (window.location.hash !== newHashStr) {
+      history.replaceState(null, document.title, window.location.pathname + window.location.search + (newHash ? `#${newHash}` : ''));
+    }
+  } catch (e) {
+    console.error('Lỗi khi đồng bộ hash URL:', e);
+  }
+}
+
+function parseTargetValue(valueStr) {
+  if (!valueStr) return 0;
+  const clean = String(valueStr).replace(/[^\d]/g, '');
+  const parsed = parseInt(clean, 10);
+  return isNaN(parsed) ? 0 : parsed;
+}
+
+function formatTargetInput(value) {
+  if (!value) return '0';
+  return Math.round(value).toLocaleString('vi-VN');
+}
+
+function updateTrendingVsTargetComparison() {
+  if (!trendingVsTargetEl) return;
+  
+  const targetVal = dashboardTargetInput ? parseTargetValue(dashboardTargetInput.value) : 0;
+  if (targetVal <= 0) {
+    trendingVsTargetEl.textContent = 'Chưa đặt';
+    trendingVsTargetEl.className = 'change-flat';
+    return;
+  }
+
+  const diff = latestTrendingTotal - targetVal;
+  const percent = (diff / targetVal) * 100;
+  
+  trendingVsTargetEl.textContent = formatPercent(percent);
+  trendingVsTargetEl.className = getChangeClass(diff);
+}
+
+function handleTargetInput(e) {
+  const input = e.target;
+  let val = input.value;
+  
+  let cursorPosition = input.selectionStart;
+  const originalLength = val.length;
+  
+  const cleanVal = val.replace(/[^\d]/g, '');
+  if (!cleanVal) {
+    input.value = '';
+    try {
+      localStorage.setItem(TARGET_STORAGE_KEY, '0');
+    } catch (err) {}
+    syncTargetToUrlHash(0);
+    updateTrendingVsTargetComparison();
+    return;
+  }
+  
+  const numericVal = parseInt(cleanVal, 10);
+  const formattedVal = numericVal.toLocaleString('vi-VN');
+  
+  input.value = formattedVal;
+  
+  const newLength = formattedVal.length;
+  const lengthDiff = newLength - originalLength;
+  
+  let newCursorPos = cursorPosition + lengthDiff;
+  newCursorPos = Math.max(0, Math.min(newCursorPos, newLength));
+  input.setSelectionRange(newCursorPos, newCursorPos);
+
+  try {
+    localStorage.setItem(TARGET_STORAGE_KEY, String(numericVal));
+  } catch (err) {}
+  syncTargetToUrlHash(numericVal);
+  updateTrendingVsTargetComparison();
 }
 
 function readGroups() {

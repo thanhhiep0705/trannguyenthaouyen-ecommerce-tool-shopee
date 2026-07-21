@@ -187,12 +187,24 @@
           <span class="metric-icon" aria-hidden="true">₫</span>
           <span>Doanh thu July</span>
           <strong id="thisMonthTotal">0</strong>
-          <span class="metric-subtitle">Dự báo (Trending): <span id="thisMonthTrending">0</span></span>
         </div>
         <div class="metric metric-change">
           <span class="metric-icon" aria-hidden="true">↗</span>
-          <span>Tăng / giảm</span>
+          <span>Tăng trưởng vs tháng trước</span>
           <strong id="dashboardChange">0%</strong>
+          <span class="metric-subtitle">Dự báo (Trending): <span id="thisMonthTrending">0</span></span>
+        </div>
+        <div class="metric metric-target">
+          <span class="metric-icon" aria-hidden="true">🎯</span>
+          <span>Trending vs Target</span>
+          <strong id="trendingVsTarget" class="change-flat">Chưa đặt</strong>
+          <div class="target-input-row">
+            <span class="target-input-label">Mục tiêu:</span>
+            <div class="target-input-container">
+              <input id="dashboardTarget" type="text" placeholder="Nhập target..." value="0" inputmode="numeric" pattern="[0-9.]*">
+              <span class="currency-symbol">₫</span>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -226,7 +238,12 @@
           <table>
             <thead>
               <tr>
-                <th>Mã sản phẩm</th>
+                <th>
+                  <button id="toggleAllVariantsBtn" class="toggle-all-header-btn" type="button" title="Mở rộng / thu gọn tất cả phân loại">
+                    <span id="toggleAllVariantsIcon" class="toggle-all-icon">▼</span>
+                    <span>Mã sản phẩm</span>
+                  </button>
+                </th>
                 <th class="sortable" data-sort="name">Tên sản phẩm / phân loại<span class="sort-icon"> ↕</span></th>
                 <th class="sortable numeric-cell" data-sort="lastRevenue">Jun<span class="sort-icon"> ↕</span></th>
                 <th class="sortable numeric-cell" data-sort="thisRevenue">July<span class="sort-icon"> ↕</span></th>
