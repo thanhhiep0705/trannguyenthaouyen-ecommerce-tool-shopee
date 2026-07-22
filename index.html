@@ -3,167 +3,23 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mi Tools</title>
+  <title>Dashboard - Mi Tools</title>
   <link rel="stylesheet" href="styles.css">
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="app.js" defer></script>
 </head>
 <body>
   <main>
     <header class="app-header">
-      <a class="brand" href="#" aria-label="Mi Tools - Trang chủ">
+      <a class="brand" href="#" aria-label="Dashboard - Trang chủ">
         <span class="brand-mark" aria-hidden="true">M</span>
         <span>
-          <strong>Mi Tools</strong>
+          <strong>Dashboard</strong>
           <small>Sales workspace</small>
         </span>
       </a>
-      <nav class="tabs" role="tablist" aria-label="Menu chính">
-        <button class="tab-button active" type="button" role="tab" data-tab="autoFsPanel" aria-controls="autoFsPanel" aria-selected="true">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 4v6m10-6v6M5 12h14v8H5z"/></svg>
-          Auto FS
-        </button>
-        <button class="tab-button" type="button" role="tab" data-tab="dashboardPanel" aria-controls="dashboardPanel" aria-selected="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V10m7 10V4m7 16v-7"/></svg>
-          Dashboard
-        </button>
-      </nav>
     </header>
 
-    <section id="autoFsPanel" class="tab-panel active" role="tabpanel">
-      <div class="page-heading">
-        <div>
-          <span class="eyebrow">FLASH SALE GENERATOR</span>
-          <h1>Tạo File Flash Sale</h1>
-          <p>Chọn sản phẩm theo từng khoảng xếp hạng và xuất file Flash Sale sẵn sàng sử dụng.</p>
-        </div>
-        <button id="refreshAutoFsBtn" class="refresh-button" type="button">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5M18.5 9A7 7 0 0 0 6.8 6.4L4 11m16 2-2.8 4.6A7 7 0 0 1 5.5 15"/></svg>
-          Làm mới dữ liệu
-        </button>
-      </div>
-
-      <div class="workspace-grid">
-        <div class="workspace-main">
-          <section class="panel config-panel" aria-label="Cấu hình nhóm top">
-            <div class="panel-heading">
-              <div>
-                <span class="step-label">BƯỚC 1</span>
-                <h2>Thiết lập khoảng sản phẩm</h2>
-              </div>
-              <span class="panel-note">Cấu hình được tự động lưu</span>
-            </div>
-            <div class="config">
-              <div class="group-config">
-                <div class="group-title"><span>01</span><h3>Nhóm đầu bảng</h3></div>
-                <div class="fields">
-                  <div class="field">
-                    <label for="group1From">Từ top</label>
-                    <input id="group1From" type="number" min="1" step="1" value="1">
-                  </div>
-                  <div class="field">
-                    <label for="group1To">Đến top</label>
-                    <input id="group1To" type="number" min="1" step="1" value="10">
-                  </div>
-                  <div class="field count-field">
-                    <label for="group1Count">Số lượng</label>
-                    <input id="group1Count" type="number" min="0" step="1" value="2">
-                  </div>
-                </div>
-              </div>
-
-              <div class="group-config">
-                <div class="group-title"><span>02</span><h3>Nhóm giữa bảng</h3></div>
-                <div class="fields">
-                  <div class="field">
-                    <label for="group2From">Từ top</label>
-                    <input id="group2From" type="number" min="1" step="1" value="11">
-                  </div>
-                  <div class="field">
-                    <label for="group2To">Đến top</label>
-                    <input id="group2To" type="number" min="1" step="1" value="100">
-                  </div>
-                  <div class="field count-field">
-                    <label for="group2Count">Số lượng</label>
-                    <input id="group2Count" type="number" min="0" step="1" value="3">
-                  </div>
-                </div>
-              </div>
-
-              <div class="group-config">
-                <div class="group-title"><span>03</span><h3>Nhóm cuối bảng</h3></div>
-                <div class="fields">
-                  <div class="field">
-                    <label for="group3From">Từ top</label>
-                    <input id="group3From" type="number" min="1" step="1" value="101">
-                  </div>
-                  <div class="field">
-                    <label for="group3To">Đến top</label>
-                    <input id="group3To" type="number" min="1" step="1" placeholder="Không giới hạn">
-                  </div>
-                  <div class="field count-field">
-                    <label for="group3Count">Số lượng</label>
-                    <input id="group3Count" type="number" min="0" step="1" value="5">
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <section class="panel" aria-label="Cấu hình Auto FS">
-            <div class="panel-heading">
-              <div>
-                <span class="step-label">BƯỚC 2</span>
-                <h2>Điều kiện xuất file</h2>
-              </div>
-            </div>
-            <div class="auto-fs-config">
-              <div class="field">
-                <label for="autoMinimumInventory">Tồn kho phân loại tối thiểu</label>
-                <div class="input-with-suffix">
-                  <input id="autoMinimumInventory" type="number" min="0" step="1" value="200">
-                  <span>sản phẩm</span>
-                </div>
-                <small>Chỉ xuất các phân loại đạt mức tồn này.</small>
-              </div>
-              <div class="field">
-                <label for="priceAdjustment">Điều chỉnh giá đã giảm</label>
-                <div class="input-with-suffix">
-                  <input id="priceAdjustment" type="number" step="1000" value="0" placeholder="VD: -10000">
-                  <span>₫</span>
-                </div>
-                <small>Dùng số âm để giảm và số dương để tăng.</small>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <aside class="export-card">
-          <span class="step-label light">BƯỚC 3</span>
-          <h2>Tạo file Flash Sale</h2>
-          <p>Dữ liệu sẽ được random theo cấu hình bên trái và tải trực tiếp về máy.</p>
-          <div id="status" class="status" role="status" aria-live="polite"></div>
-          <div class="download-actions" role="group" aria-label="Tùy chọn tải file Auto FS">
-            <button id="downloadBtn" class="primary-action" type="button" disabled>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-5-5 5 5 5-5M5 20h14"/></svg>
-              <span><strong>Random & tải 1 file</strong><small>File Excel .xlsx</small></span>
-            </button>
-            <button id="downloadBatchBtn" class="batch-button" type="button" disabled>
-              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 7V4h12v12h-3M4 8h12v12H4z"/></svg>
-              <span><strong>Tạo & tải 8 file</strong><small>Gộp trong file ZIP</small></span>
-            </button>
-          </div>
-          <div class="export-hint">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16v-5m0-3h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0z"/></svg>
-            Các file trong cùng một ZIP không trùng sản phẩm.
-          </div>
-        </aside>
-      </div>
-
-    </section>
-
-    <section id="dashboardPanel" class="tab-panel" role="tabpanel">
+    <section id="dashboardPanel" class="tab-panel active" role="tabpanel">
       <div class="page-heading">
         <div>
           <span class="eyebrow">REVENUE OVERVIEW</span>
@@ -198,11 +54,31 @@
           <span class="metric-icon" aria-hidden="true">🎯</span>
           <span>Trending vs Target</span>
           <strong id="trendingVsTarget" class="change-flat">Chưa đặt</strong>
-          <div class="target-input-row">
-            <span class="target-input-label">Mục tiêu:</span>
-            <div class="target-input-container">
-              <input id="dashboardTarget" type="text" placeholder="Nhập target..." value="0" inputmode="numeric" pattern="[0-9.]*">
-              <span class="currency-symbol">₫</span>
+          <div class="target-row-container">
+            <!-- View Mode -->
+            <div id="targetViewMode" class="target-view-mode">
+              <span class="target-input-label">Mục tiêu:</span>
+              <span id="targetValueText" class="target-display-value">0 ₫</span>
+              <button id="editTargetBtn" class="target-action-btn" type="button" title="Sửa mục tiêu">
+                ✎
+              </button>
+            </div>
+            
+            <!-- Edit Mode (hidden by default) -->
+            <div id="targetEditMode" class="target-edit-mode" style="display: none;">
+              <span class="target-input-label">Mục tiêu:</span>
+              <div class="target-input-container">
+                <input id="dashboardTarget" type="text" placeholder="Nhập target..." value="0" inputmode="numeric" pattern="[0-9.]*">
+                <span class="currency-symbol">₫</span>
+              </div>
+              <div class="target-edit-actions">
+                <button id="saveTargetBtn" class="target-action-btn save-btn" type="button" title="Lưu">
+                  ✓
+                </button>
+                <button id="cancelTargetBtn" class="target-action-btn cancel-btn" type="button" title="Hủy">
+                  ✗
+                </button>
+              </div>
             </div>
           </div>
         </div>

@@ -616,10 +616,12 @@ button:disabled {
 }
 
 .metric-subtitle {
-  display: block;
+  display: flex;
+  align-items: center;
+  height: 20px;
   margin-top: 6px;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -669,20 +671,86 @@ button:disabled {
   background: #fff3e0;
 }
 
-.target-input-row {
+.target-row-container {
+  margin-top: 6px;
+  position: relative;
+  width: calc(100% - 24px); /* avoid overlapping metric icon */
+  height: 20px; /* match the metric-subtitle height exactly */
+  display: flex;
+  align-items: center;
+}
+
+.target-view-mode,
+.target-edit-mode {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-top: 10px;
-  position: relative;
-  width: calc(100% - 24px); /* avoid overlapping metric icon */
+  width: 100%;
 }
 
 .target-input-label {
   color: var(--muted);
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   white-space: nowrap;
+}
+
+.target-display-value {
+  color: #344054;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.target-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  background: #eaecf0;
+  color: #475467;
+  font-size: 10px;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  line-height: 1;
+  transition: all 150ms ease;
+  user-select: none;
+}
+
+.target-action-btn:hover {
+  background: #d0d5dd;
+  color: var(--ink);
+}
+
+.target-edit-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.target-action-btn.save-btn {
+  background: #ecfdf3;
+  color: #039855;
+  font-weight: bold;
+  font-size: 11px;
+}
+
+.target-action-btn.save-btn:hover {
+  background: #d1fadf;
+}
+
+.target-action-btn.cancel-btn {
+  background: #fef3f2;
+  color: #d92d20;
+  font-weight: bold;
+  font-size: 11px;
+}
+
+.target-action-btn.cancel-btn:hover {
+  background: #fee4e2;
 }
 
 .metric-target .target-input-container {
@@ -694,8 +762,9 @@ button:disabled {
 }
 
 .metric-target .target-input-container input {
-  font-weight: 750;
-  color: #101828;
+  font-family: inherit;
+  font-weight: 700;
+  color: #344054;
   font-size: 14px;
   border: none;
   background: transparent;
@@ -704,15 +773,20 @@ button:disabled {
   width: 100%;
   border-bottom: 1.5px dashed #ccc;
   outline: none;
+  height: 20px;
+  line-height: 20px;
 }
 
 .metric-target .target-input-container input:focus {
-  border-bottom-color: #ff9800;
+  border: none;
+  border-bottom: 1.5px dashed #ff9800;
+  box-shadow: none;
+  outline: none;
 }
 
 .metric-target .target-input-container .currency-symbol {
-  font-weight: 750;
-  color: #101828;
+  font-weight: 700;
+  color: #344054;
   font-size: 14px;
   margin-left: 3px;
 }
