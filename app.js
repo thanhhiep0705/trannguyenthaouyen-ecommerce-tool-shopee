@@ -7,8 +7,8 @@ const dashboardChangeEl = document.getElementById('dashboardChange');
 const revenueTreeBody = document.getElementById('revenueTreeBody');
 const dashboardSearchInput = document.getElementById('dashboardSearch');
 const searchSummaryBar = document.getElementById('searchSummaryBar');
-const searchTotalJunEl = document.getElementById('searchTotalJun');
-const searchTotalJulyEl = document.getElementById('searchTotalJuly');
+const searchTotalLastMonthEl = document.getElementById('searchTotalLastMonth');
+const searchTotalThisMonthEl = document.getElementById('searchTotalThisMonth');
 const searchTotalTrendingEl = document.getElementById('searchTotalTrending');
 const searchTotalChangeEl = document.getElementById('searchTotalChange');
 const dashboardTargetInput = document.getElementById('dashboardTarget');
@@ -29,8 +29,8 @@ let originalTargetInputValue = '';
 const TARGET_STORAGE_KEY = 'flashSaleDashboardTarget';
 
 const GOOGLE_SHEET_ID = '1Pi__I2Uwd3OTGp7ff8Ju6qC0oQHidTZMu11ljZbNPM4';
-const LAST_MONTH_REVENUE_SHEET = 'Jun';
-const THIS_MONTH_REVENUE_SHEET = 'July';
+const LAST_MONTH_REVENUE_SHEET = 'July';
+const THIS_MONTH_REVENUE_SHEET = 'Aug';
 
 refreshDashboardBtn.addEventListener('click', handleDashboard);
 dashboardSearchInput.addEventListener('input', () => {
@@ -490,21 +490,21 @@ function renderRevenueTree(products) {
   }
 
   if (query && searchSummaryBar) {
-    let totalJun = 0;
-    let totalJuly = 0;
+    let totalLastMonth = 0;
+    let totalThisMonth = 0;
     let totalTrending = 0;
 
     filteredProducts.forEach(product => {
-      totalJun += product.lastRevenue || 0;
-      totalJuly += product.thisRevenue || 0;
+      totalLastMonth += product.lastRevenue || 0;
+      totalThisMonth += product.thisRevenue || 0;
       totalTrending += product.trendingRevenue || 0;
     });
 
-    const diff = totalTrending - totalJun;
-    const percent = totalJun === 0 ? (totalTrending === 0 ? 0 : null) : (diff / totalJun) * 100;
+    const diff = totalTrending - totalLastMonth;
+    const percent = totalLastMonth === 0 ? (totalTrending === 0 ? 0 : null) : (diff / totalLastMonth) * 100;
 
-    searchTotalJunEl.textContent = formatCurrency(totalJun);
-    searchTotalJulyEl.textContent = formatCurrency(totalJuly);
+    searchTotalLastMonthEl.textContent = formatCurrency(totalLastMonth);
+    searchTotalThisMonthEl.textContent = formatCurrency(totalThisMonth);
     searchTotalTrendingEl.textContent = formatCurrency(totalTrending);
     searchTotalChangeEl.textContent = formatPercent(percent);
     searchTotalChangeEl.className = getChangeClass(diff);
