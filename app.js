@@ -29,8 +29,8 @@ let originalTargetInputValue = '';
 const TARGET_STORAGE_KEY = 'flashSaleDashboardTarget';
 
 const GOOGLE_SHEET_ID = '1Pi__I2Uwd3OTGp7ff8Ju6qC0oQHidTZMu11ljZbNPM4';
-const LAST_MONTH_REVENUE_SHEET = 'July';
-const THIS_MONTH_REVENUE_SHEET = 'Aug';
+const LAST_MONTH_REVENUE_SHEET = 'Aug';
+const THIS_MONTH_REVENUE_SHEET = 'Sep';
 
 refreshDashboardBtn.addEventListener('click', handleDashboard);
 dashboardSearchInput.addEventListener('input', () => {
