@@ -29,8 +29,8 @@ let originalTargetInputValue = '';
 const TARGET_STORAGE_KEY = 'flashSaleDashboardTarget';
 
 const GOOGLE_SHEET_ID = '1Pi__I2Uwd3OTGp7ff8Ju6qC0oQHidTZMu11ljZbNPM4';
-const LAST_MONTH_REVENUE_SHEET = 'Sep';
-const THIS_MONTH_REVENUE_SHEET = 'Oct';
+const LAST_MONTH_REVENUE_SHEET = 'Last Month';
+const THIS_MONTH_REVENUE_SHEET = 'This Month';
 
 refreshDashboardBtn.addEventListener('click', handleDashboard);
 dashboardSearchInput.addEventListener('input', () => {
@@ -115,8 +115,40 @@ revenueTreeBody.addEventListener('click', event => {
   }
 });
 
+initMonthLabels();
 initTarget();
 handleDashboard();
+
+function initMonthLabels() {
+  const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const now = new Date();
+  const currentMonthIdx = now.getMonth();
+  const lastMonthIdx = (currentMonthIdx + 11) % 12;
+
+  const thisMonthName = MONTH_NAMES[currentMonthIdx];
+  const lastMonthName = MONTH_NAMES[lastMonthIdx];
+
+  const labelLastMonth = document.getElementById('labelLastMonthName');
+  if (labelLastMonth) labelLastMonth.textContent = lastMonthName;
+
+  const labelThisMonth = document.getElementById('labelThisMonthName');
+  if (labelThisMonth) labelThisMonth.textContent = thisMonthName;
+
+  const sectionSortMonth = document.getElementById('sectionSortMonthName');
+  if (sectionSortMonth) sectionSortMonth.textContent = thisMonthName;
+
+  const searchLastMonth = document.getElementById('searchSummaryLastMonthLabel');
+  if (searchLastMonth) searchLastMonth.textContent = `${lastMonthName}:`;
+
+  const searchThisMonth = document.getElementById('searchSummaryThisMonthLabel');
+  if (searchThisMonth) searchThisMonth.textContent = `${thisMonthName}:`;
+
+  const thLastMonth = document.getElementById('thLastMonthLabel');
+  if (thLastMonth) thLastMonth.textContent = lastMonthName;
+
+  const thThisMonth = document.getElementById('thThisMonthLabel');
+  if (thThisMonth) thThisMonth.textContent = thisMonthName;
+}
 
 function setDashboardStatus(message, type) {
   dashboardStatusEl.textContent = message;
