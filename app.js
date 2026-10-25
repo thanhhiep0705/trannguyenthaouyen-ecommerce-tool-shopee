@@ -917,3 +917,720 @@ function escapeHtml(value) {
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
 }
+
+/* ==========================================================================
+   Tab Navigation & Stock Monitor Logic
+   ========================================================================== */
+
+const STOCK_SHEET = 'Follow STOCK';
+const STOCK_THRESHOLDS_KEY = 'miSalesStockThresholds';
+
+const tabButtons = document.querySelectorAll('.app-header .tab-button');
+const tabPanels = document.querySelectorAll('.tab-panel');
+
+const refreshStockBtn = document.getElementById('refreshStockBtn');
+const stockStatusEl = document.getElementById('stockStatus');
+const stockMonthLabelBadge = document.getElementById('stockMonthLabelBadge');
+
+const stockConfigBtn = document.getElementById('stockConfigBtn');
+const exportStockExcelBtn = document.getElementById('exportStockExcelBtn');
+const stockThresholdPanel = document.getElementById('stockThresholdPanel');
+const closeStockConfigBtn = document.getElementById('closeStockConfigBtn');
+const cancelStockConfigBtn = document.getElementById('cancelStockConfigBtn');
+const saveStockThresholdsBtn = document.getElementById('saveStockThresholdsBtn');
+const resetStockThresholdsBtn = document.getElementById('resetStockThresholdsBtn');
+const inputDangerDays = document.getElementById('inputDangerDays');
+const inputWarningDays = document.getElementById('inputWarningDays');
+const hintSafeVal = document.getElementById('hintSafeVal');
+
+const labelCardDangerDays = document.getElementById('labelCardDangerDays');
+const labelCardWarningRange = document.getElementById('labelCardWarningRange');
+const labelCardSafeDays = document.getElementById('labelCardSafeDays');
+
+const stockCountOOSEl = document.getElementById('stockCountOOS');
+const stockCountDangerEl = document.getElementById('stockCountDanger');
+const stockCountWarningEl = document.getElementById('stockCountWarning');
+const stockCountSafeEl = document.getElementById('stockCountSafe');
+const stockTotalRevenueEl = document.getElementById('stockTotalRevenue');
+const stockTotalSKUEl = document.getElementById('stockTotalSKU');
+
+const pillCountAll = document.getElementById('pillCountAll');
+const pillCountOOS = document.getElementById('pillCountOOS');
+const pillCountDanger = document.getElementById('pillCountDanger');
+const pillCountWarning = document.getElementById('pillCountWarning');
+const pillCountSafe = document.getElementById('pillCountSafe');
+
+const stockFilterPills = document.querySelectorAll('.stock-filter-pill');
+const stockSummaryCards = document.querySelectorAll('.stock-summary .metric[data-stock-filter]');
+const stockSearchInput = document.getElementById('stockSearchInput');
+
+const stockFilterInfoBar = document.getElementById('stockFilterInfoBar');
+const stockFilteredCountEl = document.getElementById('stockFilteredCount');
+const stockFilteredTotalEl = document.getElementById('stockFilteredTotal');
+const stockFilteredTotalStockEl = document.getElementById('stockFilteredTotalStock');
+const stockFilteredTotalRevenueEl = document.getElementById('stockFilteredTotalRevenue');
+const stockResetFilterBtn = document.getElementById('stockResetFilterBtn');
+
+const stockTableBody = document.getElementById('stockTableBody');
+const stockSortableHeaders = document.querySelectorAll('.stock-sortable');
+
+let stockItems = [];
+let stockLoaded = false;
+let stockFilter = 'all';
+let stockSearchQuery = '';
+let stockSortColumn = 'priority';
+let stockSortDirection = 'asc';
+let stockMonthLabel = 'Oct 2026';
+
+let stockDangerDays = 14;
+let stockWarningDays = 30;
+
+// Initialize custom thresholds from localStorage
+loadStockThresholds();
+
+// Tab switching
+tabButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const targetPanelId = btn.dataset.tab;
+    if (!targetPanelId) return;
+
+    tabButtons.forEach(b => b.classList.remove('active'));
+    tabPanels.forEach(p => p.classList.remove('active'));
+
+    btn.classList.add('active');
+    const targetPanel = document.getElementById(targetPanelId);
+    if (targetPanel) {
+      targetPanel.classList.add('active');
+    }
+
+    if (targetPanelId === 'stockPanel' && !stockLoaded) {
+      handleStock();
+    }
+  });
+});
+
+if (refreshStockBtn) {
+  refreshStockBtn.addEventListener('click', handleStock);
+}
+
+// Config Panel Events
+if (stockConfigBtn && stockThresholdPanel) {
+  stockConfigBtn.addEventListener('click', () => {
+    const isHidden = stockThresholdPanel.style.display === 'none';
+    stockThresholdPanel.style.display = isHidden ? 'block' : 'none';
+    stockConfigBtn.classList.toggle('active', isHidden);
+    if (isHidden) {
+      if (inputDangerDays) inputDangerDays.value = stockDangerDays;
+      if (inputWarningDays) inputWarningDays.value = stockWarningDays;
+      updateConfigPanelHints();
+    }
+  });
+}
+
+function closeStockConfig() {
+  if (stockThresholdPanel) stockThresholdPanel.style.display = 'none';
+  if (stockConfigBtn) stockConfigBtn.classList.remove('active');
+  if (inputDangerDays) inputDangerDays.value = stockDangerDays;
+  if (inputWarningDays) inputWarningDays.value = stockWarningDays;
+  updateConfigPanelHints();
+}
+
+if (closeStockConfigBtn) closeStockConfigBtn.addEventListener('click', closeStockConfig);
+if (cancelStockConfigBtn) cancelStockConfigBtn.addEventListener('click', closeStockConfig);
+
+function updateConfigPanelHints() {
+  const w = parseInt(inputWarningDays ? inputWarningDays.value : stockWarningDays, 10) || stockWarningDays;
+  if (hintSafeVal) {
+    hintSafeVal.textContent = `> ${w} ngày`;
+  }
+}
+
+if (inputDangerDays) inputDangerDays.addEventListener('input', updateConfigPanelHints);
+if (inputWarningDays) inputWarningDays.addEventListener('input', updateConfigPanelHints);
+
+if (saveStockThresholdsBtn) {
+  saveStockThresholdsBtn.addEventListener('click', () => {
+    const d = parseInt(inputDangerDays.value, 10);
+    const w = parseInt(inputWarningDays.value, 10);
+
+    if (isNaN(d) || d < 1) {
+      alert('Ngưỡng nguy hiểm phải là số nguyên ≥ 1 ngày.');
+      inputDangerDays.focus();
+      return;
+    }
+
+    if (isNaN(w) || w <= d) {
+      alert(`Ngưỡng cảnh báo phải lớn hơn ngưỡng nguy hiểm (phải > ${d} ngày).`);
+      inputWarningDays.focus();
+      return;
+    }
+
+    stockDangerDays = d;
+    stockWarningDays = w;
+
+    try {
+      localStorage.setItem(STOCK_THRESHOLDS_KEY, JSON.stringify({ danger: d, warning: w }));
+    } catch (e) {
+      console.error('Không lưu được thresholds:', e);
+    }
+
+    updateThresholdLabels();
+
+    // Re-classify all items with new thresholds
+    stockItems.forEach(item => classifyStockItem(item));
+
+    renderStockSummary();
+    renderStockTable();
+    closeStockConfig();
+
+    setStockStatus(`Đã áp dụng điều kiện mới: Nguy hiểm ≤ ${stockDangerDays} ngày, Cảnh báo ≤ ${stockWarningDays} ngày.`);
+    setTimeout(() => {
+      if (stockStatusEl && stockStatusEl.textContent.includes('Đã áp dụng điều kiện mới')) {
+        setStockStatus('');
+      }
+    }, 3500);
+  });
+}
+
+if (resetStockThresholdsBtn) {
+  resetStockThresholdsBtn.addEventListener('click', () => {
+    stockDangerDays = 14;
+    stockWarningDays = 30;
+    if (inputDangerDays) inputDangerDays.value = 14;
+    if (inputWarningDays) inputWarningDays.value = 30;
+
+    try {
+      localStorage.removeItem(STOCK_THRESHOLDS_KEY);
+    } catch (e) {}
+
+    updateThresholdLabels();
+    stockItems.forEach(item => classifyStockItem(item));
+    renderStockSummary();
+    renderStockTable();
+    closeStockConfig();
+
+    setStockStatus('Đã khôi phục ngưỡng mặc định: 14 ngày (Nguy hiểm), 30 ngày (Cảnh báo).');
+    setTimeout(() => {
+      if (stockStatusEl && stockStatusEl.textContent.includes('Đã khôi phục ngưỡng mặc định')) {
+        setStockStatus('');
+      }
+    }, 3500);
+  });
+}
+
+// Export Excel button
+if (exportStockExcelBtn) {
+  exportStockExcelBtn.addEventListener('click', exportStockToExcel);
+}
+
+function loadStockThresholds() {
+  try {
+    const saved = localStorage.getItem(STOCK_THRESHOLDS_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed.danger === 'number' && typeof parsed.warning === 'number') {
+        if (parsed.danger >= 1 && parsed.warning > parsed.danger) {
+          stockDangerDays = parsed.danger;
+          stockWarningDays = parsed.warning;
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Lỗi đọc stock thresholds từ localStorage:', e);
+  }
+
+  if (inputDangerDays) inputDangerDays.value = stockDangerDays;
+  if (inputWarningDays) inputWarningDays.value = stockWarningDays;
+  updateThresholdLabels();
+}
+
+function updateThresholdLabels() {
+  if (labelCardDangerDays) labelCardDangerDays.textContent = stockDangerDays;
+  if (labelCardWarningRange) labelCardWarningRange.textContent = `${stockDangerDays + 1}–${stockWarningDays}`;
+  if (labelCardSafeDays) labelCardSafeDays.textContent = stockWarningDays;
+  if (hintSafeVal) hintSafeVal.textContent = `> ${stockWarningDays} ngày`;
+}
+
+// Filter pills
+stockFilterPills.forEach(pill => {
+  pill.addEventListener('click', () => {
+    setStockFilter(pill.dataset.filter);
+  });
+});
+
+// Summary card click to filter
+stockSummaryCards.forEach(card => {
+  card.addEventListener('click', () => {
+    const target = card.dataset.stockFilter;
+    if (stockFilter === target) {
+      setStockFilter('all');
+    } else {
+      setStockFilter(target);
+    }
+  });
+});
+
+// Search input
+if (stockSearchInput) {
+  stockSearchInput.addEventListener('input', e => {
+    stockSearchQuery = e.target.value.trim().toLowerCase();
+    renderStockTable();
+  });
+}
+
+// Reset filter
+if (stockResetFilterBtn) {
+  stockResetFilterBtn.addEventListener('click', () => {
+    if (stockSearchInput) stockSearchInput.value = '';
+    stockSearchQuery = '';
+    setStockFilter('all');
+  });
+}
+
+// Sort headers
+stockSortableHeaders.forEach(header => {
+  header.addEventListener('click', () => {
+    const col = header.dataset.stockSort;
+    if (!col) return;
+
+    if (stockSortColumn === col) {
+      stockSortDirection = stockSortDirection === 'asc' ? 'desc' : 'asc';
+    } else {
+      stockSortColumn = col;
+      stockSortDirection = (col === 'sku' || col === 'oosdays' || col === 'status') ? 'asc' : 'desc';
+    }
+
+    renderStockTable();
+  });
+});
+
+function setStockFilter(filterKey) {
+  stockFilter = filterKey || 'all';
+
+  // Update pills active state
+  stockFilterPills.forEach(pill => {
+    pill.classList.toggle('active', pill.dataset.filter === stockFilter);
+  });
+
+  // Update cards active state
+  stockSummaryCards.forEach(card => {
+    card.classList.toggle('filter-active', card.dataset.stockFilter === stockFilter);
+  });
+
+  renderStockTable();
+}
+
+function setStockStatus(message, type = '') {
+  if (!stockStatusEl) return;
+  stockStatusEl.textContent = message;
+  stockStatusEl.className = type ? `status dashboard-status ${type}` : 'status dashboard-status';
+  stockStatusEl.style.display = message ? 'block' : 'none';
+}
+
+async function handleStock() {
+  try {
+    setStockStatus('Đang tải dữ liệu tồn kho từ sheet "Follow STOCK"...', '');
+    if (refreshStockBtn) refreshStockBtn.disabled = true;
+
+    const rows = await loadGoogleSheetRows({ sheetName: STOCK_SHEET });
+    parseStockRows(rows);
+    stockLoaded = true;
+
+    renderStockSummary();
+    renderStockTable();
+    setStockStatus('');
+  } catch (error) {
+    console.error('Lỗi tải dữ liệu tồn kho:', error);
+    setStockStatus(`Không tải được sheet "${STOCK_SHEET}": ${error.message}`, 'error');
+    if (stockTableBody) {
+      stockTableBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--danger); padding: 24px;">Lỗi tải dữ liệu: ${escapeHtml(error.message)}</td></tr>`;
+    }
+  } finally {
+    if (refreshStockBtn) refreshStockBtn.disabled = false;
+  }
+}
+
+function classifyStockItem(item) {
+  if (item.stock === 0 || item.oosDays === 0) {
+    item.status = 'oos';
+    item.statusLabel = 'Hết hàng';
+    item.statusPriority = 1;
+  } else if (item.oosDays !== null && item.oosDays <= stockDangerDays) {
+    item.status = 'danger';
+    item.statusLabel = 'Nguy hiểm';
+    item.statusPriority = 2;
+  } else if (item.oosDays !== null && item.oosDays <= stockWarningDays) {
+    item.status = 'warning';
+    item.statusLabel = 'Cảnh báo';
+    item.statusPriority = 3;
+  } else {
+    item.status = 'safe';
+    item.statusLabel = 'An toàn';
+    item.statusPriority = 4;
+  }
+}
+
+function parseStockRows(rows) {
+  stockItems = [];
+  if (!Array.isArray(rows) || rows.length === 0) return;
+
+  // Header row may contain month context in col 7
+  const headerRow = rows[0] || [];
+  if (headerRow[7] && typeof headerRow[7] === 'string' && headerRow[7].trim()) {
+    stockMonthLabel = headerRow[7].trim();
+  } else {
+    stockMonthLabel = 'Oct 2026';
+  }
+
+  if (stockMonthLabelBadge) {
+    stockMonthLabelBadge.textContent = stockMonthLabel;
+  }
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || !row[0]) continue;
+
+    const sku = String(row[0]).trim();
+    if (!sku || sku === 'SKU' || sku.toLowerCase() === 'grand total') continue;
+
+    const revenue = parseOptionalNumber(row[1]) || 0;
+    const soldMonth = parseOptionalNumber(row[2]) || 0;
+    const stock = parseOptionalNumber(row[3]) || 0;
+
+    const rawOos = row[4] !== undefined && row[4] !== null ? String(row[4]).trim() : '';
+    const isNa = rawOos.toUpperCase().includes('N/A');
+    let oosDays = null;
+    if (!isNa) {
+      const match = rawOos.match(/(\d+)/);
+      if (match) {
+        oosDays = parseInt(match[1], 10);
+      }
+    }
+
+    const rateDay = parseOptionalNumber(row[5]) || 0;
+    const rateMonth = parseOptionalNumber(row[6]) || 0;
+
+    const item = {
+      sku,
+      revenue,
+      soldMonth,
+      stock,
+      oosDays,
+      rawOos,
+      isNa,
+      rateDay,
+      rateMonth,
+      status: 'safe',
+      statusLabel: 'An toàn',
+      statusPriority: 4
+    };
+
+    classifyStockItem(item);
+    stockItems.push(item);
+  }
+}
+
+function renderStockSummary() {
+  const total = stockItems.length;
+  let oosCount = 0;
+  let dangerCount = 0;
+  let warningCount = 0;
+  let safeCount = 0;
+  let totalRevenue = 0;
+
+  stockItems.forEach(item => {
+    if (item.status === 'oos') oosCount++;
+    else if (item.status === 'danger') dangerCount++;
+    else if (item.status === 'warning') warningCount++;
+    else if (item.status === 'safe') safeCount++;
+
+    totalRevenue += item.revenue;
+  });
+
+  if (stockCountOOSEl) stockCountOOSEl.textContent = formatCurrency(oosCount);
+  if (stockCountDangerEl) stockCountDangerEl.textContent = formatCurrency(dangerCount);
+  if (stockCountWarningEl) stockCountWarningEl.textContent = formatCurrency(warningCount);
+  if (stockCountSafeEl) stockCountSafeEl.textContent = formatCurrency(safeCount);
+  if (stockTotalRevenueEl) stockTotalRevenueEl.textContent = `${formatCurrency(totalRevenue)} ₫`;
+  if (stockTotalSKUEl) stockTotalSKUEl.textContent = formatCurrency(total);
+
+  if (pillCountAll) pillCountAll.textContent = formatCurrency(total);
+  if (pillCountOOS) pillCountOOS.textContent = formatCurrency(oosCount);
+  if (pillCountDanger) pillCountDanger.textContent = formatCurrency(dangerCount);
+  if (pillCountWarning) pillCountWarning.textContent = formatCurrency(warningCount);
+  if (pillCountSafe) pillCountSafe.textContent = formatCurrency(safeCount);
+}
+
+function renderStockTable() {
+  if (!stockTableBody) return;
+
+  // 1. Filter
+  let filtered = stockItems.filter(item => {
+    if (stockFilter !== 'all' && item.status !== stockFilter) {
+      return false;
+    }
+    if (stockSearchQuery && !item.sku.toLowerCase().includes(stockSearchQuery)) {
+      return false;
+    }
+    return true;
+  });
+
+  // 2. Info Bar
+  const isFiltered = stockFilter !== 'all' || Boolean(stockSearchQuery);
+  if (stockFilterInfoBar) {
+    if (isFiltered) {
+      stockFilterInfoBar.style.display = 'flex';
+      const filteredStock = filtered.reduce((sum, item) => sum + item.stock, 0);
+      const filteredRevenue = filtered.reduce((sum, item) => sum + item.revenue, 0);
+
+      if (stockFilteredCountEl) stockFilteredCountEl.textContent = formatCurrency(filtered.length);
+      if (stockFilteredTotalEl) stockFilteredTotalEl.textContent = formatCurrency(stockItems.length);
+      if (stockFilteredTotalStockEl) stockFilteredTotalStockEl.textContent = formatCurrency(filteredStock);
+      if (stockFilteredTotalRevenueEl) stockFilteredTotalRevenueEl.textContent = `${formatCurrency(filteredRevenue)} ₫`;
+    } else {
+      stockFilterInfoBar.style.display = 'none';
+    }
+  }
+
+  // 3. Sort
+  filtered.sort((a, b) => {
+    let result = 0;
+    if (stockSortColumn === 'priority') {
+      if (a.statusPriority !== b.statusPriority) {
+        result = a.statusPriority - b.statusPriority;
+      } else {
+        const daysA = a.oosDays !== null ? a.oosDays : 999999;
+        const daysB = b.oosDays !== null ? b.oosDays : 999999;
+        result = daysA - daysB;
+      }
+      return stockSortDirection === 'desc' ? -result : result;
+    }
+
+    switch (stockSortColumn) {
+      case 'sku':
+        result = a.sku.localeCompare(b.sku);
+        break;
+      case 'stock':
+        result = a.stock - b.stock;
+        break;
+      case 'soldMonth':
+        result = a.soldMonth - b.soldMonth;
+        break;
+      case 'rateDay':
+        result = a.rateDay - b.rateDay;
+        break;
+      case 'rateMonth':
+        result = a.rateMonth - b.rateMonth;
+        break;
+      case 'oosdays': {
+        const daysA = a.oosDays !== null ? a.oosDays : 999999;
+        const daysB = b.oosDays !== null ? b.oosDays : 999999;
+        result = daysA - daysB;
+        break;
+      }
+      case 'revenue':
+        result = a.revenue - b.revenue;
+        break;
+      case 'status':
+        result = a.statusPriority - b.statusPriority;
+        break;
+      default:
+        result = 0;
+    }
+
+    return stockSortDirection === 'desc' ? -result : result;
+  });
+
+  // Update Sort Header Icons
+  stockSortableHeaders.forEach(header => {
+    const col = header.dataset.stockSort;
+    const iconSpan = header.querySelector('.sort-icon');
+    if (!iconSpan) return;
+
+    if (col === stockSortColumn) {
+      iconSpan.textContent = stockSortDirection === 'asc' ? ' ▲' : ' ▼';
+      iconSpan.style.color = 'var(--brand)';
+    } else {
+      iconSpan.textContent = ' ↕';
+      iconSpan.style.color = '';
+    }
+  });
+
+  // 4. Render Table Rows
+  if (filtered.length === 0) {
+    stockTableBody.innerHTML = `
+      <tr>
+        <td colspan="8" style="text-align: center; padding: 36px; color: var(--muted);">
+          Không tìm thấy SKU nào phù hợp với bộ lọc hiện tại.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  const maxBarScale = Math.max(stockWarningDays * 2, 60);
+
+  const rowsHtml = filtered.map(item => {
+    // Days text and progress bar calculation
+    let daysText = '';
+    let barClass = '';
+    let barPercent = 0;
+
+    if (item.status === 'oos') {
+      daysText = `<span class="oos-text oos-text-danger">0 ngày (Hết hàng)</span>`;
+      barClass = 'fill-oos';
+      barPercent = 100;
+    } else if (item.status === 'danger') {
+      daysText = `<span class="oos-text oos-text-danger">${item.oosDays} ngày</span>`;
+      barClass = 'fill-danger';
+      barPercent = Math.max(10, Math.min(100, Math.round((item.oosDays / maxBarScale) * 100)));
+    } else if (item.status === 'warning') {
+      daysText = `<span class="oos-text oos-text-warning">${item.oosDays} ngày</span>`;
+      barClass = 'fill-warning';
+      barPercent = Math.max(15, Math.min(100, Math.round((item.oosDays / maxBarScale) * 100)));
+    } else if (item.isNa) {
+      daysText = `<span class="oos-text oos-text-muted">N/A (Chưa bán)</span>`;
+      barClass = 'fill-na';
+      barPercent = 100;
+    } else {
+      daysText = `<span class="oos-text oos-text-safe">${item.oosDays} ngày</span>`;
+      barClass = 'fill-safe';
+      barPercent = Math.min(100, Math.max(20, Math.round((item.oosDays / maxBarScale) * 100)));
+    }
+
+    return `
+      <tr class="stock-row-${item.status}">
+        <td><strong>${escapeHtml(item.sku)}</strong></td>
+        <td class="numeric-cell"><span class="${item.stock === 0 ? 'text-danger font-bold' : ''}">${formatCurrency(item.stock)}</span></td>
+        <td class="numeric-cell">${formatCurrency(item.soldMonth)}</td>
+        <td class="numeric-cell">${formatCurrency(item.rateDay)}</td>
+        <td class="numeric-cell">${formatCurrency(item.rateMonth)}</td>
+        <td>
+          <div class="stock-oos-cell">
+            <div class="stock-oos-header">
+              ${daysText}
+            </div>
+            <div class="stock-progress-track">
+              <div class="stock-progress-fill ${barClass}" style="width: ${barPercent}%;"></div>
+            </div>
+          </div>
+        </td>
+        <td class="numeric-cell font-bold">${formatCurrency(item.revenue)} ₫</td>
+        <td>
+          <span class="stock-badge badge-${item.status}">
+            ${item.status === 'oos' ? '🔴' : item.status === 'danger' ? '🟠' : item.status === 'warning' ? '🟡' : '🟢'} ${item.statusLabel}
+          </span>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  stockTableBody.innerHTML = rowsHtml;
+}
+
+function exportStockToExcel() {
+  if (!stockItems || stockItems.length === 0) {
+    alert('Chưa có dữ liệu tồn kho để xuất. Vui lòng đợi dữ liệu tải xong hoặc bấm "Cập nhật".');
+    return;
+  }
+
+  // Filter items if user has filter or search active
+  let itemsToExport = stockItems.filter(item => {
+    if (stockFilter !== 'all' && item.status !== stockFilter) {
+      return false;
+    }
+    if (stockSearchQuery && !item.sku.toLowerCase().includes(stockSearchQuery)) {
+      return false;
+    }
+    return true;
+  });
+
+  if (itemsToExport.length === 0) {
+    itemsToExport = stockItems;
+  }
+
+  const exportRows = itemsToExport.map((item, idx) => ({
+    'STT': idx + 1,
+    'Mã SKU': item.sku,
+    'Tồn kho hiện tại': item.stock,
+    'Đã bán tháng': item.soldMonth,
+    'Tốc độ bán/ngày': item.rateDay,
+    'Trending bán/tháng': item.rateMonth,
+    'Ngày còn hàng (OOS)': item.status === 'oos' ? 0 : (item.isNa ? 'N/A' : item.oosDays),
+    'Doanh thu tháng (VNĐ)': item.revenue,
+    'Trạng thái': item.statusLabel,
+    'Khuyến nghị xử lý': item.status === 'oos'
+      ? 'Hết hàng - Đặt hàng khẩn cấp'
+      : item.status === 'danger'
+      ? `Nguy hiểm - Còn ≤ ${stockDangerDays} ngày`
+      : item.status === 'warning'
+      ? `Cảnh báo - Còn ≤ ${stockWarningDays} ngày`
+      : `An toàn (> ${stockWarningDays} ngày)`
+  }));
+
+  const safeMonthName = (stockMonthLabel || 'Oct_2026').replace(/[^a-zA-Z0-9]/g, '_');
+  const dateStr = new Date().toISOString().slice(0, 10);
+  const fileName = `Follow_STOCK_${safeMonthName}_${dateStr}`;
+
+  // 1. Try Native XLSX export via SheetJS
+  if (window.XLSX && window.XLSX.utils) {
+    try {
+      const ws = XLSX.utils.json_to_sheet(exportRows);
+      ws['!cols'] = [
+        { wch: 6 },
+        { wch: 22 },
+        { wch: 18 },
+        { wch: 16 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 22 },
+        { wch: 15 },
+        { wch: 35 }
+      ];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Follow STOCK");
+      XLSX.writeFile(wb, `${fileName}.xlsx`);
+
+      setStockStatus(`Đã xuất thành công ${exportRows.length} SKU ra file ${fileName}.xlsx!`);
+      setTimeout(() => {
+        if (stockStatusEl && stockStatusEl.textContent.includes('Đã xuất thành công')) {
+          setStockStatus('');
+        }
+      }, 4000);
+      return;
+    } catch (err) {
+      console.warn('Lỗi xuất với SheetJS, chuyển sang CSV:', err);
+    }
+  }
+
+  // 2. Fallback to UTF-8 BOM CSV (opens seamlessly in Excel with Vietnamese characters)
+  try {
+    const headers = Object.keys(exportRows[0]);
+    const csvLines = [headers.join(',')];
+    exportRows.forEach(row => {
+      const line = headers.map(h => `"${String(row[h] !== undefined && row[h] !== null ? row[h] : '').replace(/"/g, '""')}"`).join(',');
+      csvLines.push(line);
+    });
+    const blob = new Blob(['\uFEFF' + csvLines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${fileName}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    setStockStatus(`Đã xuất thành công ${exportRows.length} SKU ra file ${fileName}.csv!`);
+    setTimeout(() => {
+      if (stockStatusEl && stockStatusEl.textContent.includes('Đã xuất thành công')) {
+        setStockStatus('');
+      }
+    }, 4000);
+  } catch (err) {
+    console.error('Lỗi khi xuất file:', err);
+    alert('Có lỗi khi tạo file xuất: ' + err.message);
+  }
+}
+

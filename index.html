@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Dashboard - Mi Tools</title>
   <link rel="stylesheet" href="styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -14,9 +15,19 @@
         <span class="brand-mark" aria-hidden="true">M</span>
         <span>
           <strong>Dashboard</strong>
-          <small>Sales workspace</small>
+          <small>Sales &amp; Stock workspace</small>
         </span>
       </a>
+      <nav class="tabs" aria-label="Điều hướng">
+        <button id="tabDashboardBtn" class="tab-button active" type="button" data-tab="dashboardPanel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+          Doanh thu
+        </button>
+        <button id="tabStockBtn" class="tab-button" type="button" data-tab="stockPanel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7.5 4.27 9 5.15M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5M12 22V12"/></svg>
+          Theo dõi tồn kho (OOS)
+        </button>
+      </nav>
     </header>
 
     <section id="dashboardPanel" class="tab-panel active" role="tabpanel">
@@ -130,6 +141,188 @@
             <tbody id="revenueTreeBody">
               <tr>
                 <td colspan="6">Chưa có dữ liệu.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+
+    <section id="stockPanel" class="tab-panel" role="tabpanel">
+      <div class="page-heading">
+        <div>
+          <span class="eyebrow">STOCK INVENTORY &amp; OOS FORECAST</span>
+          <h1>Theo dõi tồn kho (Follow Stock)</h1>
+          <p>Dự báo nguy cơ hết hàng theo tốc độ bán và số ngày còn hàng (OOS Trending) <span id="stockMonthLabelBadge" class="stock-month-badge">Oct 2026</span></p>
+        </div>
+        <div class="heading-actions">
+          <button id="stockConfigBtn" class="action-button config-trigger-btn" type="button" title="Cài đặt ngưỡng ngày cảnh báo OOS">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+            Cài đặt ngưỡng
+          </button>
+          <button id="exportStockExcelBtn" class="action-button excel-export-btn" type="button" title="Xuất danh sách ra file Excel (.xlsx)">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Xuất Excel
+          </button>
+          <button id="refreshStockBtn" class="refresh-button" type="button">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6v5h-5M4 18v-5h5M18.5 9A7 7 0 0 0 6.8 6.4L4 11m16 2-2.8 4.6A7 7 0 0 1 5.5 15"/></svg>
+            Cập nhật
+          </button>
+        </div>
+      </div>
+
+      <!-- Collapsible Threshold Settings Panel -->
+      <div id="stockThresholdPanel" class="stock-config-panel" style="display: none;">
+        <div class="config-panel-top">
+          <div class="config-panel-title">
+            <span class="config-icon" aria-hidden="true">⚙️</span>
+            <div>
+              <strong>Cài đặt điều kiện số ngày dự báo hết hàng (OOS)</strong>
+              <small>Tùy chỉnh ngưỡng ngày phù hợp với chu kỳ nhập hàng thực tế của shop</small>
+            </div>
+          </div>
+          <button id="closeStockConfigBtn" class="config-close-btn" type="button" title="Đóng">&times;</button>
+        </div>
+        <div class="config-inputs-row">
+          <div class="config-input-card card-danger-config">
+            <div class="config-card-header">
+              <span class="status-dot dot-danger" aria-hidden="true"></span>
+              <strong>Mức Nguy hiểm</strong>
+            </div>
+            <p class="config-card-desc">Cần ưu tiên đặt hàng ngay lập tức</p>
+            <div class="config-input-wrap">
+              <span>Còn ≤</span>
+              <input id="inputDangerDays" type="number" min="1" max="180" value="14">
+              <span>ngày</span>
+            </div>
+          </div>
+
+          <div class="config-input-card card-warning-config">
+            <div class="config-card-header">
+              <span class="status-dot dot-warning" aria-hidden="true"></span>
+              <strong>Mức Cảnh báo</strong>
+            </div>
+            <p class="config-card-desc">Lên kế hoạch nhập hàng trong tuần</p>
+            <div class="config-input-wrap">
+              <span>Còn ≤</span>
+              <input id="inputWarningDays" type="number" min="2" max="365" value="30">
+              <span>ngày</span>
+            </div>
+          </div>
+
+          <div class="config-input-card card-safe-config">
+            <div class="config-card-header">
+              <span class="status-dot dot-safe" aria-hidden="true"></span>
+              <strong>Mức An toàn</strong>
+            </div>
+            <p class="config-card-desc">Tồn kho đáp ứng tốt nhu cầu bán</p>
+            <div class="config-safe-val">
+              <span>Tự động:</span>
+              <strong id="hintSafeVal">> 30 ngày</strong>
+            </div>
+          </div>
+        </div>
+        <div class="config-panel-footer">
+          <button id="resetStockThresholdsBtn" class="btn-config-reset" type="button">Mặc định (14 / 30 ngày)</button>
+          <div class="config-footer-right">
+            <button id="cancelStockConfigBtn" class="btn-config-cancel" type="button">Hủy</button>
+            <button id="saveStockThresholdsBtn" class="btn-config-save" type="button">Lưu &amp; Áp dụng</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="stockStatus" class="status dashboard-status" role="status" aria-live="polite"></div>
+
+      <!-- 5 Summary Cards -->
+      <section class="summary stock-summary" aria-label="Tóm tắt tồn kho">
+        <div class="metric metric-oos" data-stock-filter="oos" role="button" tabindex="0" title="Bấm để lọc SKU hết hàng">
+          <span class="metric-icon metric-icon-oos" aria-hidden="true">🔴</span>
+          <span>Hết hàng (0 ngày)</span>
+          <strong id="stockCountOOS">0</strong>
+          <span class="metric-subtitle">Cần nhập kho ngay</span>
+        </div>
+        <div class="metric metric-danger" data-stock-filter="danger" role="button" tabindex="0" title="Bấm để lọc SKU nguy hiểm">
+          <span class="metric-icon metric-icon-danger" aria-hidden="true">🟠</span>
+          <span>Nguy hiểm (≤ <span id="labelCardDangerDays">14</span> ngày)</span>
+          <strong id="stockCountDanger">0</strong>
+          <span class="metric-subtitle">Rủi ro OOS rất cao</span>
+        </div>
+        <div class="metric metric-warning" data-stock-filter="warning" role="button" tabindex="0" title="Bấm để lọc SKU cảnh báo">
+          <span class="metric-icon metric-icon-warning" aria-hidden="true">🟡</span>
+          <span>Cảnh báo (<span id="labelCardWarningRange">15–30</span> ngày)</span>
+          <strong id="stockCountWarning">0</strong>
+          <span class="metric-subtitle">Lên kế hoạch nhập hàng</span>
+        </div>
+        <div class="metric metric-safe" data-stock-filter="safe" role="button" tabindex="0" title="Bấm để lọc SKU an toàn">
+          <span class="metric-icon metric-icon-safe" aria-hidden="true">🟢</span>
+          <span>An toàn (> <span id="labelCardSafeDays">30</span> ngày)</span>
+          <strong id="stockCountSafe">0</strong>
+          <span class="metric-subtitle">Đủ đáp ứng nhu cầu</span>
+        </div>
+        <div class="metric metric-revenue">
+          <span class="metric-icon" aria-hidden="true">₫</span>
+          <span>Tổng doanh thu SKU</span>
+          <strong id="stockTotalRevenue">0 ₫</strong>
+          <span class="metric-subtitle"><span id="stockTotalSKU">0</span> SKU đang theo dõi</span>
+        </div>
+      </section>
+
+      <!-- Table Section -->
+      <section class="panel stock-section">
+        <div class="section-heading stock-section-heading">
+          <div>
+            <h2>Chi tiết tồn kho &amp; Dự báo OOS</h2>
+            <p>Mặc định ưu tiên các SKU có nguy cơ hết hàng sớm nhất lên đầu.</p>
+          </div>
+          <div class="stock-controls">
+            <!-- Filter Pills -->
+            <div class="stock-filter-group" id="stockFilterGroup" role="radiogroup" aria-label="Bộ lọc trạng thái">
+              <button class="stock-filter-pill active" type="button" data-filter="all">Tất cả (<span id="pillCountAll">0</span>)</button>
+              <button class="stock-filter-pill pill-oos" type="button" data-filter="oos">Hết hàng (<span id="pillCountOOS">0</span>)</button>
+              <button class="stock-filter-pill pill-danger" type="button" data-filter="danger">Nguy hiểm (<span id="pillCountDanger">0</span>)</button>
+              <button class="stock-filter-pill pill-warning" type="button" data-filter="warning">Cảnh báo (<span id="pillCountWarning">0</span>)</button>
+              <button class="stock-filter-pill pill-safe" type="button" data-filter="safe">An toàn (<span id="pillCountSafe">0</span>)</button>
+            </div>
+            <!-- Search Box -->
+            <div class="dashboard-tools stock-search-box">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/></svg>
+              <input id="stockSearchInput" type="search" placeholder="Tìm theo mã SKU...">
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Info Bar -->
+        <div id="stockFilterInfoBar" class="search-summary-bar stock-info-bar" style="display: none;">
+          <span class="summary-label">Đang lọc:</span>
+          <div class="summary-item">
+            <span>Hiển thị:</span> <strong id="stockFilteredCount">0</strong> / <span id="stockFilteredTotal">0</span> SKU
+          </div>
+          <div class="summary-item">
+            <span>Tổng tồn kho:</span> <strong id="stockFilteredTotalStock">0</strong>
+          </div>
+          <div class="summary-item">
+            <span>Tổng doanh thu:</span> <strong id="stockFilteredTotalRevenue">0 ₫</strong>
+          </div>
+          <button id="stockResetFilterBtn" class="stock-reset-btn" type="button">Xóa bộ lọc</button>
+        </div>
+
+        <div class="preview stock-table-container">
+          <table class="stock-table">
+            <thead>
+              <tr>
+                <th class="stock-sortable" data-stock-sort="sku">Mã SKU<span class="sort-icon"> ↕</span></th>
+                <th class="stock-sortable numeric-cell" data-stock-sort="stock">Tồn kho hiện tại<span class="sort-icon"> ↕</span></th>
+                <th class="stock-sortable numeric-cell" data-stock-sort="soldMonth">Đã bán tháng<span class="sort-icon"> ↕</span></th>
+                <th class="stock-sortable numeric-cell" data-stock-sort="rateDay">Tốc độ (bán/ngày)<span class="sort-icon"> ↕</span></th>
+                <th class="stock-sortable numeric-cell" data-stock-sort="rateMonth">Trending (bán/tháng)<span class="sort-icon"> ↕</span></th>
+                <th class="stock-sortable" data-stock-sort="oosdays" style="min-width: 220px;">Ngày còn hàng (OOS)<span class="sort-icon"> ↕</span></th>
+                <th class="stock-sortable numeric-cell" data-stock-sort="revenue">Doanh thu tháng<span class="sort-icon"> ↕</span></th>
+                <th class="stock-sortable" data-stock-sort="status">Trạng thái<span class="sort-icon"> ↕</span></th>
+              </tr>
+            </thead>
+            <tbody id="stockTableBody">
+              <tr>
+                <td colspan="8">Đang tải dữ liệu tồn kho...</td>
               </tr>
             </tbody>
           </table>
