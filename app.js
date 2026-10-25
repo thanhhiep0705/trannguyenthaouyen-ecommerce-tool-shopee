@@ -527,9 +527,17 @@ function renderRevenueTree(products) {
     let totalTrending = 0;
 
     filteredProducts.forEach(product => {
-      totalLastMonth += product.lastRevenue || 0;
-      totalThisMonth += product.thisRevenue || 0;
-      totalTrending += product.trendingRevenue || 0;
+      if (product.variants && product.variants.length > 0) {
+        product.variants.forEach(variant => {
+          totalLastMonth += variant.lastRevenue || 0;
+          totalThisMonth += variant.thisRevenue || 0;
+          totalTrending += variant.trendingRevenue || 0;
+        });
+      } else {
+        totalLastMonth += product.lastRevenue || 0;
+        totalThisMonth += product.thisRevenue || 0;
+        totalTrending += product.trendingRevenue || 0;
+      }
     });
 
     const diff = totalTrending - totalLastMonth;
