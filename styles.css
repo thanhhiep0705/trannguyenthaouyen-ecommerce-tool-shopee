@@ -55,7 +55,7 @@ svg {
 }
 
 main {
-  width: min(1440px, 100%);
+  width: min(1760px, 100%);
   min-height: 100vh;
   margin: 0 auto;
   padding: 0 40px 56px;
@@ -1561,6 +1561,13 @@ td:nth-child(5) {
 
 .stock-summary {
   grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-bottom: 30px;
+}
+
+.stock-section {
+  margin-top: 30px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .stock-summary .metric[data-stock-filter] {
@@ -1629,15 +1636,17 @@ td:nth-child(5) {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+  gap: 20px;
+  padding: 20px 24px;
+  border-bottom: 1px solid #eaecf0;
 }
 
 .stock-controls {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  flex-shrink: 0;
 }
 
 .stock-filter-group {
@@ -1647,6 +1656,7 @@ td:nth-child(5) {
   background: #f2f4f7;
   padding: 4px;
   border-radius: 10px;
+  flex-shrink: 0;
 }
 
 .stock-filter-pill {
@@ -1695,7 +1705,41 @@ td:nth-child(5) {
 }
 
 .stock-search-box {
-  min-width: 240px;
+  width: 250px;
+  min-width: 180px;
+  flex-shrink: 0;
+}
+
+.stock-export-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 15px;
+  border-radius: 9px;
+  border: 1px solid #a7f3d0;
+  background: linear-gradient(180deg, #ffffff, #f0fdf4);
+  color: #065f46;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+  transition: all 160ms ease;
+}
+
+.stock-export-btn:hover:not(:disabled) {
+  border-color: #34d399;
+  background: #ecfdf5;
+  color: #047857;
+  box-shadow: 0 3px 8px rgba(16, 185, 129, 0.16);
+  transform: translateY(-1px);
+}
+
+.stock-export-btn:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 .stock-info-bar {
@@ -1882,6 +1926,12 @@ td:nth-child(5) {
 @media (max-width: 1300px) {
   .stock-summary {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .stock-section-heading {
+    flex-wrap: wrap;
+  }
+  .stock-controls {
+    flex-wrap: wrap;
   }
 }
 
